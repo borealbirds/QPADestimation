@@ -8,6 +8,8 @@ library(tidyverse)
 library(wildRtrax)
 library(data.table)
 
+#NOTE: DOCUMENT TAXONOMY####
+
 #1. Get list of projects from WildTrax----
 wt_auth()
 
