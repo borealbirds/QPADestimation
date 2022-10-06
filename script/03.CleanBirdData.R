@@ -19,40 +19,27 @@ library(lubridate) #date and time wrangling
 load("data/wildtrax_data_2022-07-24.Rdata")
 load("data/visit_data_2022-07-24.Rdata")
 
-#2. Filter----
+#2. Filter, tidy, create foreign key for visit table----
 #Remove surveys with no location
-#Remove surveys with no temporal or spatial structure within a visit
-#Remove outliers for day of year
-use <- raw %>%
+#Remove outliers for day of year (use 99% quantile)
+#Ensure there's visit data
+bird <- raw %>%
     mutate(datetime = ymd_hms(date),
            julian = yday(datetime),
-           abundance = as.numeric(abundance)) %>%
-    dplyr::filter(!is.na(latitude),
-                  latitude > 0,
-                  !(distanceMethod %in% c("0m-INF", NA, "0m-INF-ARU", "UNKNOWN") &
-                        durationMethod %in% c("0-3min", "0-5min", "0-10min", "0-2min", "0-20min", "UNKNOWN", NA))) %>%
-    dplyr::filter(julian > quantile(julian, 0.01),
-                  julian < quantile(julian, 0.99))
-
-#3. Tidy, & create foreign key for visit table----
-bird <- use %>%
+           abundance = as.numeric(abundance),
+           id = paste(location, observer, datetime)) %>%
     rename(lat = latitude, lon = longitude) %>%
-    dplyr::select(organization, project, location, lat, lon, observer, datetime, distanceMethod, durationMethod, speciesCode, distanceBand, durationInterval, abundance, vocalization) %>%
-    mutate(id = paste(location, observer, datetime))
+    dplyr::filter(!is.na(lat),
+                  lat > 0,
+                  !is.na(date)) %>%
+    dplyr::filter(julian > quantile(julian, 0.005),
+                  julian < quantile(julian, 0.995)) %>%
+    dplyr::filter(id %in% visit$id) %>%
+    dplyr::select(id, organization, project, location, lat, lon, observer, datetime, distanceMethod, durationMethod, speciesCode, distanceBand, durationInterval, abundance, vocalization)
 
-#4. Add species list----
+#3. Add species list----
 species <- read.csv("data/singing-species.csv") %>%
     rename(speciesCode = Species_ID)
 
-#5. Save----
-visit <- visit %>%
-    dplyr::filter(!is.na(tsg),
-                  !is.na(tssr))  %>%
-    mutate(id = paste(location, observer, datetime)) %>%
-    mutate(lat = round(lat, 5),
-           lon = round(lon, 5)) %>%
-    mutate(tsg = tsg/365,
-           tsg2 = tsg^2) %>%
-    unique()
-
+#4. Save----
 save(visit, bird, species,  file="data/cleaned_data_2022-07-24.Rdata")
