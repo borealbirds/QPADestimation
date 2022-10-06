@@ -10,15 +10,10 @@ library(detect) #removal models
 
 options(dplyr.summarise.inform = FALSE, scipen=9999)
 
-#TO DO: CONSIDER SIN & COS FUNCTIONS####
-#TO DO: CONSIDER LAT & LON####
-#TO DO: CONSIDER TMTT####
-#TO DO: CONSIDER VOCALIZATION/DETECTION TYPE####
-
 #1. Create list of models----
 #jday = day of year as a decimal between 0 and 1
 #tssr = time since sunrise as a decimal between 0 and 1
-#tsg = days since greenup start (15% max EVI) as a decimal between 0 and 1
+#tsg = days since start of seedgrowth from seedgrow layers
 
 mods <- list(
     ~ 1,
@@ -59,7 +54,7 @@ modnames <- list(
 load("data/cleaned_data_2022-07-24.Rdata")
 
 #3. Create design lookup table that describes duration method for each protocol----
-#filter out duration methods that aren't appropriate for removal modelling
+#filter out duration methods that aren't appropriate for removal modelling (only have 1 time bin)
 design <- visit %>%
     dplyr::select(durationMethod) %>%
     unique() %>%
@@ -86,9 +81,7 @@ for(i in 1:nrow(spp)){
     # filter to observations with covariates
     bird.i <- bird %>%
         dplyr::filter(speciesCode==spp$speciesCode[i],
-                      !durationMethod %in% c("UNKNOWN", "0-10min", "0-20min", "0-5min", "0-3min", "0-2min"),
-                      durationInterval!="UNKNOWN",
-                      id %in% visit$id) %>%
+                      durationMethod %in% design$durationMethod) %>%
         group_by(id, durationMethod, durationInterval) %>%
         summarize(abundance = sum(abundance)) %>%
         ungroup()
@@ -100,10 +93,14 @@ for(i in 1:nrow(spp)){
     }
 
     #8. Filter visit covariates----
+    #Remove nas
     x <- visit %>%
-        dplyr::filter(id %in% unique(bird.i$id)) %>%
+        dplyr::filter(id %in% unique(bird.i$id),
+                      !is.na(tssr),
+                      !is.na(tsg),
+                      !is.na(jday)) %>%
         arrange(id) %>%
-        dplyr::select(durationMethod, jday, jday2, tssr, tssr2, tsg, tsg2)
+        dplyr::select(id, durationMethod, jday, jday2, tssr, tssr2, tsg, tsg2)
 
     #9. Create design matrix----
     d <- x %>%
@@ -115,6 +112,7 @@ for(i in 1:nrow(spp)){
     #10. Format abundance matrix----
     #add dummy variables for each of the columns to make sure the matrix is the right width
     y <- bird.i %>%
+        dplyr::filter(id %in% x$id) %>%
         separate(durationInterval, into=c("start", "end"), sep="-", remove=FALSE) %>%
         mutate(start = as.numeric(start),
                end = as.numeric(str_sub(end, -100, -4))) %>%
@@ -130,12 +128,10 @@ for(i in 1:nrow(spp)){
         dplyr::select(-id) %>%
         as.matrix()
 
-
     #11. Change zeros to NAs in the abundance matrix to match the design matrix----
-    cols <- 1:ncol(y)
-    for (j in cols){
-        indices <- which(y[,j] == 0)
-        y[indices, j] <- ifelse(is.na(d[indices, j]), NA, 0)
+    for (j in 1:nrow(y)){
+        indices <- which(is.na(d[j,]))
+        y[j, indices] <- NA
     }
 
     #12. Fit models----
@@ -147,6 +143,8 @@ for(i in 1:nrow(spp)){
             rval <- mod[c("coefficients","vcov","nobs","loglik")]
             rval$p <- length(coef(mod))
             rval$names <- modnames[[j]]
+            rval$aic <- AIC(mod)
+            rval$aicc <- rval$aic + (2*rval$p^2+2*rval$p) / (nrow(y)-rval$p-1)
         } else {
             rval <- mod
         }
