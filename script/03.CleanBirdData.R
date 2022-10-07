@@ -16,8 +16,8 @@ library(lubridate) #date and time wrangling
 # str(e$pc)
 
 #1. Load in raw  & visit dataset----
-load("data/wildtrax_data_2022-07-24.Rdata")
-load("data/visit_data_2022-07-24.Rdata")
+load("data/wildtrax_data_2022-10-06.Rdata")
+load("data/visit_data_2022-10-06.Rdata")
 
 #2. Filter, tidy, create foreign key for visit table----
 #Remove surveys with no location
@@ -35,11 +35,11 @@ bird <- raw %>%
     dplyr::filter(julian > quantile(julian, 0.005),
                   julian < quantile(julian, 0.995)) %>%
     dplyr::filter(id %in% visit$id) %>%
-    dplyr::select(id, organization, project, location, lat, lon, observer, datetime, distanceMethod, durationMethod, speciesCode, distanceBand, durationInterval, abundance, vocalization)
+    dplyr::select(id, organization, project, location, lat, lon, observer, datetime, distanceMethod, durationMethod, speciesCode, distanceBand, durationInterval, abundance)
 
 #3. Add species list----
 species <- read.csv("data/singing-species.csv") %>%
     rename(speciesCode = Species_ID)
 
 #4. Save----
-save(visit, bird, species,  file="data/cleaned_data_2022-07-24.Rdata")
+save(visit, bird, species,  file="data/cleaned_data_2022-10-06.Rdata")
