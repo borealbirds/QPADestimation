@@ -8,8 +8,6 @@ library(tidyverse)
 library(wildRtrax)
 library(data.table)
 
-#NOTE: DOCUMENT TAXONOMY####
-
 #1. Get list of projects from WildTrax----
 wt_auth()
 
@@ -21,13 +19,17 @@ projects <- data.frame(project = as.character(project.list$project),
                        project_id = as.numeric(project.list$project_id),
                        sensorId = as.character(project.list$sensorId),
                        tasks = as.numeric(project.list$tasks),
-                       status = as.character(project.list$status))
+                       status = as.character(project.list$status)) %>%
+    dplyr::filter(sensorId=="PC")
 
 #3. Loop through projects to download data----
 dat.list <- list()
 for(i in 1:nrow(projects)){
 
-    try(dat.list[[i]] <- wt_download_report(project_id = projects$project_id[i], sensor_id = projects$sensorId[i], cols_def = F, weather_cols = T))
+    dat.try <- try(wt_download_report(project_id = projects$project_id[i], sensor_id = "PC", cols_def = F, weather_cols = F))
+    if(class(dat.try)=="data.frame"){
+        dat.list[[i]] <- dat.try
+    }
 
     print(paste0("Finished dataset ", projects$project[i], " : ", i, " of ", nrow(projects), " projects"))
 
