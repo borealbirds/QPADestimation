@@ -9,9 +9,8 @@ library(tidyverse) #basic data wrangling
 library(lubridate) #date manipulation
 library(suncalc) #sunrise time retrieval
 library(sf) #spatial manipulation
-library(terra) #raster creation
-library(downloader) #download spatial data
-library(data.table) #to collapse rgee output
+library(terra) #raster handling
+library(downloader) #download region file
 
 #Load previous dataset to look at it----
 #load into separate environment to avoid overwriting things
@@ -21,7 +20,7 @@ library(data.table) #to collapse rgee output
 # str(e$dat)
 
 #1. Load in new dataset----
-load("data/wildtrax_data_2022-07-24.Rdata")
+load("data/wildtrax_data_2022-10-06.Rdata")
 
 #2. Subset to visits & filter----
 #Remove surveys with no location
@@ -36,9 +35,6 @@ dat <- raw %>%
                   latitude > 0,
                   !is.na(date)) %>%
         unique()
-
-#Take subsample for testing
-#dat <- sample_n(dat, 1000)
 
 #3. Wrangle temporal variables----
 temporal <- dat %>%
@@ -163,4 +159,4 @@ visit <- covariates %>%
     mutate(id = paste(location, observer, datetime))
 
 #8. Save----
-save(visit, file="data/visit_data_2022-07-24.Rdata")
+save(visit, file="data/visit_data_2022-10-06.Rdata")
