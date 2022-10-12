@@ -11,6 +11,8 @@ library(data.table) #collapse list to dataframe
 
 options(dplyr.summarise.inform = FALSE, scipen=9999)
 
+#TO DO: FIX MODEL COLUMN####
+
 #1. Create list of models----
 #jday = day of year as a decimal between 0 and 1
 #tssr = time since sunrise as a decimal between 0 and 1
@@ -32,22 +34,6 @@ mods <- list(
     ~ tsg + tsg2 + tssr,
     ~ tsg + tssr + tssr2,
     ~ tsg + tsg2 + tssr + tssr2)
-names(mods) <- 0:14
-modnames <- c("(Intercept)",
-              "(Intercept) + jday",
-              "(Intercept) + tssr",
-              "(Intercept) + jday + jday2",
-              "(Intercept) + tssr + tssr2",
-              "(Intercept) + jday + tssr",
-              "(Intercept) + jday + jday2 + tssr",
-              "(Intercept) + jday + tssr + tssr2",
-              "(Intercept) + jday + jday2 + tssr + tssr2",
-              "(Intercept) + tsg",
-              "(Intercept) + tsg + tsg2",
-              "(Intercept) + tsg + tssr",
-              "(Intercept) + tsg + tsg2 + tssr",
-              "(Intercept) + tsg + tssr + tssr2",
-              "(Intercept) + tsg + tsg2 + tssr + tssr2")
 
 #2. Load data----
 load("data/cleaned_data_2022-10-06.Rdata")
@@ -92,7 +78,7 @@ for(i in 1:nrow(spp)){
         #7. Replace abundance outliers (defined as 99% quantile across species) with 99% quantile of abundance----
         if(max(bird.i$abundance) > quantile(bird$abundance, 0.99)){
             bird.i <- bird.i %>%
-                mutate(abundance = ifelse(abundance > quantile(abundance, 0.99), round(quantile(abundance, 0.99)), abundance))
+                mutate(abundance = ifelse(abundance > quantile(abundance, 0.99), ceiling(quantile(abundance, 0.99)), abundance))
         }
 
         #8. Filter visit covariates----
@@ -141,26 +127,20 @@ for(i in 1:nrow(spp)){
         #Save a bunch of metadata like sample size and aic value
         mod.list <- list()
         for (j in 1:length(mods)) {
-            f <- as.formula(paste0("y | d ", paste(as.character(mods[[j]]), collapse=" ")))
-            mod <- try(cmulti(f, x, type="rem"))
+            f <- as.formula(paste0("Y | D ", paste(as.character(ff[[i]]), collapse=" ")))
+            mod <- try(cmulti(f, X, type=type))
             if (!inherits(mod, "try-error")) {
-                rmvl <- data.frame(t(data.frame(mod["coefficients"]))) %>%
-                    mutate(nobs=mod["nobs"]$nobs,
-                           loglik = mod["loglik"]$loglik,
-                           df = length(coef(mod)),
-                           aic = AIC(mod),
-                           aicc = aic + (2*df^2+2*df) / (nrow(y)-df-1),
-                           model = modnames[j],
-                           species = spp$speciesCode[i])
+                rmvl <- mod[c("coefficients","vcov","nobs","loglik")]
+                rmvl$p <- length(coef(mod))
+                rmvl$names <- NAMES[[i]]
             } else {
-                rmvl <- data.frame(nobs="try-error",
-                                   species=spp$speciesCode[i])
+                rmvl <- mod
             }
-            mod.list[[j]] <- rmvl
+            mod.list[[names(NAMES)[j]]] <- rmvl
         }
 
         #13. Save model results to species list---
-        species.list[[i]] <- rbindlist(mod.list, fill=TRUE)
+        species.list[[i]] <- mod.list
 
     }
 
@@ -168,16 +148,34 @@ for(i in 1:nrow(spp)){
 
 }
 
-species.out <- rbindlist(species.list, fill=TRUE)
+species.out.avail <- rbindlist(species.list, fill=TRUE)
 
 #14. Identify species that failed----
-species.fail <- species.out %>%
+#Note: this is more conservative than Peter's filtering. I am assuming any species with a failed model in the set should be excluded
+species.fail <- species.out.avail %>%
     dplyr::filter(nobs=="try-error") %>%
+    group_by(species) %>%
+    summarize(n=n()) %>%
+    ungroup()
+
+#15. Identify species with insufficient sample sizes----
+n.con <- 25 # minimum sample size
+n.min <- 75 # minimum sample size for non-null model
+
+species.n.con <- species.out.avail %>%
+    dplyr::filter(as.numeric(nobs) < n.con) %>%
     dplyr::select(species) %>%
     unique()
 
-species.use <- species.out %>%
-    dplyr::filter(!species %in% species.fail$species)
+species.n.min <- species.out.avail %>%
+    dplyr::filter(as.numeric(nobs) >= n.con & as.numeric(nobs) < n.min,
+                  model != "~1") %>%
+    dplyr::select(species, model)
 
-#15. Save
-save(species.out, species.use, file="results/availability_results_2022-10-06.Rdata")
+#16. Filter & save----
+species.use.avail <- species.out.avail %>%
+    anti_join(species.fail) %>%
+    anti_join(species.n.con) %>%
+    anti_join(species.n.min)
+
+save(species.out.avail, species.use.avail, file="results/availability_results_2022-10-06.Rdata")
