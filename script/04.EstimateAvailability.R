@@ -58,7 +58,7 @@ spp <- species %>%
     arrange(speciesCode)
 
 #5. Set up loop for species----
-species.list <- list()
+avail <- list()
 for(i in 1:nrow(spp)){
 
     #6. Filter abundance data for species---
@@ -128,7 +128,7 @@ for(i in 1:nrow(spp)){
         mod.list <- list()
         for (j in 1:length(mods)) {
             f <- as.formula(paste0("Y | D ", paste(as.character(ff[[i]]), collapse=" ")))
-            mod <- try(cmulti(f, X, type=type))
+            mod <- try(cmulti(f, X, type="rem"))
             if (!inherits(mod, "try-error")) {
                 rmvl <- mod[c("coefficients","vcov","nobs","loglik")]
                 rmvl$p <- length(coef(mod))
@@ -140,7 +140,7 @@ for(i in 1:nrow(spp)){
         }
 
         #13. Save model results to species list---
-        species.list[[i]] <- mod.list
+        avail[[i]] <- mod.list
 
     }
 
@@ -148,34 +148,4 @@ for(i in 1:nrow(spp)){
 
 }
 
-species.out.avail <- rbindlist(species.list, fill=TRUE)
-
-#14. Identify species that failed----
-#Note: this is more conservative than Peter's filtering. I am assuming any species with a failed model in the set should be excluded
-species.fail <- species.out.avail %>%
-    dplyr::filter(nobs=="try-error") %>%
-    group_by(species) %>%
-    summarize(n=n()) %>%
-    ungroup()
-
-#15. Identify species with insufficient sample sizes----
-n.con <- 25 # minimum sample size
-n.min <- 75 # minimum sample size for non-null model
-
-species.n.con <- species.out.avail %>%
-    dplyr::filter(as.numeric(nobs) < n.con) %>%
-    dplyr::select(species) %>%
-    unique()
-
-species.n.min <- species.out.avail %>%
-    dplyr::filter(as.numeric(nobs) >= n.con & as.numeric(nobs) < n.min,
-                  model != "~1") %>%
-    dplyr::select(species, model)
-
-#16. Filter & save----
-species.use.avail <- species.out.avail %>%
-    anti_join(species.fail) %>%
-    anti_join(species.n.con) %>%
-    anti_join(species.n.min)
-
-save(species.out.avail, species.use.avail, file="results/availability_results_2022-10-06.Rdata")
+save(avail, file="results/availability_results_2022-10-06.Rdata")
