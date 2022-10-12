@@ -34,6 +34,22 @@ mods <- list(
     ~ tsg + tsg2 + tssr,
     ~ tsg + tssr + tssr2,
     ~ tsg + tsg2 + tssr + tssr2)
+names(mods) <- 0:14
+modnames <- c("(Intercept)",
+              "(Intercept) + jday",
+              "(Intercept) + tssr",
+              "(Intercept) + jday + jday2",
+              "(Intercept) + tssr + tssr2",
+              "(Intercept) + jday + tssr",
+              "(Intercept) + jday + jday2 + tssr",
+              "(Intercept) + jday + tssr + tssr2",
+              "(Intercept) + jday + jday2 + tssr + tssr2",
+              "(Intercept) + tsg",
+              "(Intercept) + tsg + tsg2",
+              "(Intercept) + tsg + tssr",
+              "(Intercept) + tsg + tsg2 + tssr",
+              "(Intercept) + tsg + tssr + tssr2",
+              "(Intercept) + tsg + tsg2 + tssr + tssr2")
 
 #2. Load data----
 load("data/cleaned_data_2022-10-06.Rdata")

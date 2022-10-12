@@ -17,6 +17,14 @@ mods <- list(
     ~ lcc4,
     ~ lcc2 + tree,
     ~ lcc4 + tree)
+names(mods) <- 0:5
+modnames <- list(
+    "0"="(Intercept)",
+    "1"=c("(Intercept)", "tree"),
+    "2"=c("(Intercept)", "lcc2openwet"),
+    "3"=c("(Intercept)", "lcc4conif", "lcc4open", "lcc4wet"),
+    "4"=c("(Intercept)", "lcc2openwet", "tree"),
+    "5"=c("(Intercept)", "lcc4conif", "lcc4open", "lcc4wet", "tree"))
 
 #2. Load data----
 load("data/cleaned_data_2022-10-06.Rdata")
