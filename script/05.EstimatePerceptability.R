@@ -17,14 +17,6 @@ mods <- list(
     ~ lcc4,
     ~ lcc2 + tree,
     ~ lcc4 + tree)
-names(mods) <- 0:5
-modnames <- list(
-    "0"="(Intercept)",
-    "1"=c("(Intercept)", "tree"),
-    "2"=c("(Intercept)", "lcc2openwet"),
-    "3"=c("(Intercept)", "lcc4conif", "lcc4open", "lcc4wet"),
-    "4"=c("(Intercept)", "lcc2openwet", "tree"),
-    "5"=c("(Intercept)", "lcc4conif", "lcc4open", "lcc4wet", "tree"))
 
 #2. Load data----
 load("data/cleaned_data_2022-10-06.Rdata")
@@ -70,7 +62,7 @@ for(i in 1:nrow(spp)){
         #7. Replace abundance outliers (defined as 99% quantile across species) with 99% quantile of abundance----
         if(max(bird.i$abundance) > quantile(bird$abundance, 0.99)){
             bird.i <- bird.i %>%
-                mutate(abundance = ifelse(abundance > quantile(abundance, 0.99), quantile(abundance, 0.99), abundance))
+                mutate(abundance = ifelse(abundance > quantile(abundance, 0.99), ceiling(quantile(abundance, 0.99)), abundance))
         }
 
         #8. Filter visit covariates----
@@ -128,8 +120,11 @@ for(i in 1:nrow(spp)){
                            df = length(coef(mod)),
                            aic = AIC(mod),
                            aicc = aic + (2*df^2+2*df) / (nrow(y)-df-1),
-                           model = modnames[j],
-                           species = spp$speciesCode[i])
+                           bic = -2*loglik + log(nobs)*df,
+                           model = as.character(mods[j]),
+                           species = spp$speciesCode[i],
+                           lcc2n = min(table(x$lcc2)),
+                           lcc4n = min(table(x$lcc4)))
             } else {
                 dist <- data.frame(nobs="try-error",
                                    species=spp$speciesCode[i])
@@ -145,3 +140,76 @@ for(i in 1:nrow(spp)){
     print(paste0("Finished modelling species ", spp$English_Name[i], ": ", i, " of ", nrow(spp), " species"))
 
 }
+
+species.out.percep <- rbindlist(species.list, fill=TRUE)
+
+#14. Identify species that failed----
+#Note: this is more conservative than Peter's filtering. I am assuming any species with a failed model in the set should be excluded
+species.fail <- species.out.percep %>%
+    dplyr::filter(nobs=="try-error") %>%
+    group_by(species) %>%
+    summarize(n=n()) %>%
+    ungroup()
+
+#15. Identify species with insufficient sample sizes----
+n.con <- 25 # minimum sample size
+n.min <- 75 # minimum sample size for non-null model
+
+species.n.con <- species.out.percep %>%
+    dplyr::filter(as.numeric(nobs) < n.con) %>%
+    dplyr::select(species) %>%
+    unique()
+
+species.n.min <- species.out.percep %>%
+    dplyr::filter(as.numeric(nobs) >= n.con & as.numeric(nobs) < n.min,
+                  model != "~1") %>%
+    dplyr::select(species, model)
+
+#16. Identify models with insufficient sample sizes----
+n.min.class <- 5 # min number of detections within each class
+
+lcc2.n.min <- visit %>%
+    dplyr::filter(!is.na(tree),
+                  !is.na(lcc2),
+                  !is.na(lcc4)) %>%
+    inner_join(bird %>%
+                   dplyr::select(id, speciesCode) %>%
+                   unique()) %>%
+    group_by(speciesCode, lcc2) %>%
+    summarize(n=n()) %>%
+    ungroup() %>%
+    dplyr::filter(n < n.min.class,
+                  lcc2!= "") %>%
+    rename(species=speciesCode) %>%
+    dplyr::select(species) %>%
+    unique() %>%
+    left_join(species.out.percep) %>%
+    dplyr::filter(model %in% c("~lcc2", "~lcc2 + tree"))
+
+lcc4.n.min <- visit %>%
+    dplyr::filter(!is.na(tree),
+                  !is.na(lcc2),
+                  !is.na(lcc4)) %>%
+    inner_join(bird %>%
+                   dplyr::select(id, speciesCode) %>%
+                   unique()) %>%
+    group_by(speciesCode, lcc4) %>%
+    summarize(n=n()) %>%
+    ungroup() %>%
+    dplyr::filter(n < n.min.class,
+                  lcc4!= "") %>%
+    rename(species=speciesCode) %>%
+    dplyr::select(species) %>%
+    unique() %>%
+    left_join(species.out.percep) %>%
+    dplyr::filter(model %in% c("~lcc4", "~lcc4 + tree"))
+
+#17. Filter & save----
+species.use.percep <- species.out.percep %>%
+    anti_join(species.fail) %>%
+    anti_join(species.n.con) %>%
+    anti_join(species.n.min) %>%
+    anti_join(lcc2.n.min) %>%
+    anti_join(lcc4.n.min)
+
+save(species.out.percep, species.use.percep, file="results/perceptability_results_2022-10-06.Rdata")
