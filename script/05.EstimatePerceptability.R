@@ -119,16 +119,16 @@ for(i in 1:nrow(spp)){
         #Save a bunch of metadata like sample size and aic value
         mod.list <- list()
         for (j in 1:length(mods)) {
-            f <- as.formula(paste0("Y | D ", paste(as.character(ff[[i]]), collapse=" ")))
-            mod <- try(cmulti(f, X, type="dis"))
+            f <- as.formula(paste0("y | d ", paste(as.character(mods[[i]]), collapse=" ")))
+            mod <- try(cmulti(f, x, type="dis"))
             if (!inherits(mod, "try-error")) {
                 dista <- mod[c("coefficients","vcov","nobs","loglik")]
                 dista$p <- length(coef(mod))
-                dista$names <- NAMES[[i]]
+                dista$names <- modnames[[j]]
             } else {
                 dista <- mod
             }
-            mod.list[[names(NAMES)[i]]] <- dista
+            mod.list[[names(modnames)[i]]] <- dista
         }
 
         #13. Save model results to species list---
@@ -140,4 +140,5 @@ for(i in 1:nrow(spp)){
 
 }
 
+#14. Save out results----
 save(percep, file="results/perceptability_results_2022-10-06.Rdata")
