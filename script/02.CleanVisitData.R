@@ -144,7 +144,9 @@ lcctbl <- data.frame(lcc=c(0:19),
 #6d. Put together----
 covariates <- region %>%
     cbind(lccval, sgval, treeval) %>%
-    left_join(lcctbl)
+    left_join(lcctbl) %>%
+    mutate(tree = tree/100,
+           tree = ifelse(tree > 1, 0, tree))
 
 #7. Tidy, create primary key, standardize & create polynomial variables----
 visit <- covariates %>%
