@@ -7,47 +7,44 @@
 library(tidyverse)
 library(QPAD)
 
-options(dplyr.summarise.inform = FALSE, scipen=9999)
+options(scipen=9999)
 
+my.theme <- theme_classic() +
+    theme(text=element_text(size=12, family="Arial"),
+          axis.text.x=element_text(size=12),
+          axis.text.y=element_text(size=12),
+          axis.title.x=element_text(margin=margin(10,0,0,0)),
+          axis.title.y=element_text(margin=margin(0,10,0,0)),
+          axis.line.x=element_line(linetype=1),
+          axis.line.y=element_line(linetype=1),
+          legend.text=element_text(size=12),
+          legend.title=element_text(size=12),
+          plot.title=element_text(size=12, hjust = 0.5))
+
+#1. Load results----
 load_BAM_QPAD(3)
+load("results/BAMCOEFS_QPAD_v4.rda")
 
-load("results/availability_results_2022-10-06.Rdata")
-load("results/perceptability_results_2022-10-06.Rdata")
-
-#1. Number of species----
-#1a. Version 3
+#2. Number of species----
 spp3 <- getBAMspecieslist()
+spp4 <- .BAMCOEFS4$spp
 
-#1b. Version 4
-spp4 <- species.use.avail %>%
-    dplyr::select(species) %>%
-    unique() %>%
-    inner_join(species.use.percep %>%
-                   dplyr::select(species) %>%
-                   unique())
+spp34 <- data.frame(species = union(spp3, spp4)) %>%
+    left_join(data.frame(species = spp3, version3 = 1)) %>%
+    left_join(data.frame(species = spp4, version4 = 1))
 
-#1c. New species
-sppnew <- spp4 %>%
-    dplyr::filter(!species %in% spp3)
+sppmissing <- spp34 %>%
+    dplyr::filter(is.na(version4))
 
-#2. Samples size----
+sppnew <- spp34 %>%
+    dplyr::filter(is.na(version3))
 
-#2a. Version 3
+#3. Sample size----
 n3 <- data.frame(sra.n3=.BAMCOEFS$sra_n, edr.n3=.BAMCOEFS$edr_n,
                  species=.BAMCOEFS$spp)
+n4 <- data.frame(sra.n4=.BAMCOEFS4$sra_n, edr.n4=.BAMCOEFS4$edr_n,
+                 species=.BAMCOEFS4$spp)
 
-#2b. Version 4
-n4 <- data.frame(species = spp4$species) %>%
-    left_join(species.use.avail %>%
-                  dplyr::select(species, nobs) %>%
-                  unique() %>%
-                  rename(sra.n4=nobs)) %>%
-    left_join(species.use.percep %>%
-                  dplyr::select(species, nobs) %>%
-                  unique() %>%
-                  rename(edr.n4=nobs))
-
-#2c. Compare
 n34 <- full_join(n3, n4) %>%
     mutate(edr.n4 = as.numeric(edr.n4),
            sra.n4 = as.numeric(sra.n4),
@@ -61,45 +58,62 @@ n34 <- full_join(n3, n4) %>%
                            edr.n4==0 ~ "V3",
                            !is.na(edr.n) ~ "Both"))
 
+sum(n3$sra.n3)
+sum(n4$sra.n4)
+sum(n3$edr.n3)
+sum(n4$edr.n4)
+
 ggplot(n34) +
     geom_abline(intercept = 0, slope = 1) +
-    geom_point(aes(x=sra.n3, y=sra.n4, colour=version))
+    geom_point(aes(x=sra.n3, y=sra.n4, fill=version), pch=21, alpha = 0.5, size=4) +
+    xlab("V3 sample size") +
+    ylab("V4 sample size") +
+    scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
+    my.theme
 
-sum(n34$edr.n4/sum(n34$edr.n3))
-sum(n34$sra.n4/sum(n34$sra.n3))
+ggsave(filename="figures/V3V4_samplesize_log.jpeg", width =7, height=6)
 
-#3. Top model for availability----
+ggplot(n34) +
+    geom_abline(intercept = 0, slope = 1) +
+    geom_point(aes(x=log(sra.n3), y=log(sra.n4), fill=version), pch=21, alpha = 0.5, size=4) +
+    xlab("log(V3 sample size)") +
+    ylab("log(V4 sample size)") +
+    scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
+    my.theme
 
-#3c. Version 3
-mod3 <- data.frame(sra.mod3 = .BAMCOEFS$sra_aiccbest,
-                   edr.mod3 = .BAMCOEFS$edr_aicbest)
+ggsave(filename="figures/V3V4_samplesize_log.jpeg", width =7, height=6)
 
-#4. Top model for perceptibility----
+ggplot(n34) +
+    geom_abline(intercept = 0, slope = 1) +
+    geom_text(aes(x=log(sra.n3), y=log(sra.n4), label=species)) +
+    xlab("log(V3 sample size)") +
+    ylab("log(V4 sample size)") +
+    my.theme
 
-#5. Estimates----
-est3 <- data.frame(exp(t(sapply(spp3, function(i) unlist(coefBAMspecies(i))))),
-                   species = .BAMCOEFS$spp)
-colnames(est3) <- c("sra3", "edr3", "species")
+ggsave(filename="figures/V3V4_samplesize_species.jpeg", width =7, height=6)
 
-est4 <- species.use.avail %>%
-    group_by(species) %>%
-    arrange(aicc) %>%
-    dplyr::filter(row_number()==1) %>%
-    ungroup() %>%
-    mutate(sra4 = exp(log.phi_.Intercept.)) %>%
-    dplyr::select(species, sra4) %>%
-    inner_join(species.use.percep %>%
-                   group_by(species) %>%
-                   arrange(aicc) %>%
-                   dplyr::filter(row_number()==1) %>%
-                   ungroup() %>%
-                   mutate(edr4 = exp(log.tau_.Intercept.)) %>%
-                   dplyr::select(species, edr4))
+#4. Null estimates----
+est3 <-data.frame()
+for(i in 1:length(spp3)){
+    sra3 <- exp(.BAMCOEFS$sra_estimates[[i]]$`0`$coefficients)
+    edr3 <- exp(.BAMCOEFS$edr_estimates[[i]]$`0`$coefficients)
+    est3 <- rbind(est3,
+                  data.frame(sra3=sra3, edr3=edr3, species=spp3[i]))
+}
+rownames(est3) <- NULL
+
+est4 <-data.frame()
+for(i in 1:length(spp4)){
+    sra4 <- exp(.BAMCOEFS$sra_estimates[[i]]$`0`$coefficients)
+    edr4 <- exp(.BAMCOEFS$edr_estimates[[i]]$`0`$coefficients)
+    est4 <- rbind(est4,
+                  data.frame(sra4=sra4, edr4=edr4, species=spp4[i]))
+}
+rownames(est4) <- NULL
+
 
 est34 <- full_join(est3, est4) %>%
-    mutate(edr4 = as.numeric(edr4),
-           sra4 = as.numeric(sra4),
-           edr3 = ifelse(is.na(edr3), 0, edr3),
+    mutate(edr3 = ifelse(is.na(edr3), 0, edr3),
            sra3 = ifelse(is.na(sra3), 0, sra3),
            edr4 = ifelse(is.na(edr4), 0, edr4),
            sra4 = ifelse(is.na(sra4), 0, sra4)) %>%
@@ -110,14 +124,20 @@ est34 <- full_join(est3, est4) %>%
 
 ggplot(est34) +
     geom_abline(intercept = 0, slope = 1) +
-    geom_point(aes(x=sra3, y=sra4, colour=version)) +
-    ylim(c(0, 2))
+    geom_point(aes(x=sra3, y=sra4, fill=version), pch=21, alpha = 0.5, size=4) +
+    xlab("V3 availability estimate (phi)") +
+    ylab("V4 availability estimate (phi)") +
+    scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
+    my.theme
+
+ggsave(filename="figures/V3V4_phi.jpeg", width =7, height=6)
 
 ggplot(est34) +
     geom_abline(intercept = 0, slope = 1) +
-    geom_point(aes(x=edr3, y=edr4, colour=version)) +
-    ylim(c(0, 2))
+    geom_point(aes(x=edr3, y=edr4, fill=version), pch=21, alpha = 0.5, size=4) +
+    xlab("V3 perceptability estimate (tau)") +
+    ylab("V4 perceptability estimate (tau)") +
+    scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
+    my.theme
 
-#6. Effect of tree----
-tree3 <- data.frame(exp(t(sapply(spp3, function(i) unlist(coefBAMspecies(i))))),
-                   species = .BAMCOEFS$spp)
+ggsave(filename="figures/V3V4_tau.jpeg", width =7, height=6)
