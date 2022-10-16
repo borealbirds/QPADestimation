@@ -14,7 +14,7 @@ wt_auth()
 #sensor = PC gives all ARU and point count projects
 project.list <- wt_get_download_summary(sensor_id = 'PC')
 
-#2. Convert to a plain dataframe (not sure why it's a named list)
+#2. Convert to a plain dataframe----
 projects <- data.frame(project = as.character(project.list$project),
                        project_id = as.numeric(project.list$project_id),
                        sensorId = as.character(project.list$sensorId),
