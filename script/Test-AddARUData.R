@@ -256,6 +256,7 @@ tmtttbl <- first %>%
     ungroup() %>%
     mutate(val = ceiling(q))
 
+#Replace observer species combos with less than 20 with generic "observer"
 tmttn <- first %>%
     dplyr::filter(abundance=="TMTT") %>%
     group_by(observer, speciesCode) %>%
@@ -266,16 +267,22 @@ tmttn <- first %>%
     mutate(ptmtt = ntmtt/nobs) %>%
     mutate(obs = ifelse(ntmtt < 20, "observer", observer))
 
+#Model 99% quantile with random effects for species and observer
 lm.tmtt <- lme4::lmer(val ~ 1 + (1|speciesCode) + (1|obs), data=tmttn)
+
+#Check variance explained by REs
 summary(lm.tmtt)
 
+#Predict to get values to replace TMTTs with
 tmttpred <- data.frame(pred = predict(lm.tmtt)) %>%
     cbind(data.frame(tmttn)) %>%
     mutate(predabun = round(pred))
 
+#Plot quantiles vs predictions
 ggplot(tmttpred) +
     geom_hex(aes(x=val, y=predabun))
 
+#Replace TMTTs
 bird.aru <- first %>%
     left_join(tmttpred) %>%
     mutate(abundance = as.numeric(ifelse(abundance=="TMTT", as.numeric(predabun), abundance)),
