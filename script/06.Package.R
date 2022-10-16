@@ -268,8 +268,8 @@ bamcoefs <- list(spp=spp,
                  edr_estimates=edr_estimates,
                  sra_estimates=sra_estimates,
                  version=version)
-.BAMCOEFS <- list2env(bamcoefs)
+.BAMCOEFS4 <- list2env(bamcoefs)
 
-save(.BAMCOEFS, file="results/BAMCOEFS_QPAD_v4.rda")
-toDump <- as.list(.BAMCOEFS)
+save(.BAMCOEFS4, file="results/BAMCOEFS_QPAD_v4.rda")
+toDump <- as.list(.BAMCOEFS4)
 dump("toDump", file="results/BAMCOEFS_QPAD_v4.Rdump")
