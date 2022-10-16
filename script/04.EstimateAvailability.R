@@ -35,28 +35,29 @@ mods <- list(
     ~ tsg + tssr + tssr2,
     ~ tsg + tsg2 + tssr + tssr2)
 names(mods) <- 0:14
-modnames <- list("0"="(Intercept)",
-              "1"="(Intercept) + jday",
-              "2"="(Intercept) + tssr",
-              "3"="(Intercept) + jday + jday2",
-              "4"="(Intercept) + tssr + tssr2",
-              "5"="(Intercept) + jday + tssr",
-              "6"="(Intercept) + jday + jday2 + tssr",
-              "7"="(Intercept) + jday + tssr + tssr2",
-              "8"="(Intercept) + jday + jday2 + tssr + tssr2",
-              "9"="(Intercept) + tsg",
-              "10"="(Intercept) + tsg + tsg2",
-              "11"="(Intercept) + tsg + tssr",
-              "12"="(Intercept) + tsg + tsg2 + tssr",
-              "13"="(Intercept) + tsg + tssr + tssr2",
-              "14"="(Intercept) + tsg + tsg2 + tssr + tssr2")
+modnames <- list(
+    "0"="(Intercept)",
+    "1"=c("(Intercept)", "jday"),
+    "2"=c("(Intercept)", "tssr"),
+    "3"=c("(Intercept)", "jday", "jday2"),
+    "4"=c("(Intercept)", "tssr", "tssr2"),
+    "5"=c("(Intercept)", "jday", "tssr"),
+    "6"=c("(Intercept)", "jday", "jday2", "tssr"),
+    "7"=c("(Intercept)", "jday", "tssr", "tssr2"),
+    "8"=c("(Intercept)", "jday", "jday2", "tssr", "tssr2"),
+    "9"=c("(Intercept)", "tsg"),
+    "10"=c("(Intercept)", "tsg", "tsg2"),
+    "11"=c("(Intercept)", "tsg", "tssr"),
+    "12"=c("(Intercept)", "tsg", "tsg2", "tssr"),
+    "13"=c("(Intercept)", "tsg", "tssr", "tssr2"),
+    "14"=c("(Intercept)", "tsg", "tsg2", "tssr", "tssr2"))
 
 #2. Load data----
 load("data/cleaned_data_2022-10-06.Rdata")
 
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out duration methods that aren't appropriate for removal modelling (only have 1 time bin)
-design <- visit %>%
+durdesign <- visit %>%
     dplyr::select(durationMethod) %>%
     unique() %>%
     dplyr::filter(!durationMethod %in% c("UNKNOWN", "0-10min", "0-20min", "0-5min", "0-3min", "0-2min")) %>%
@@ -82,7 +83,7 @@ for(i in 1:nrow(spp)){
     # filter to observations with covariates
     bird.i <- bird %>%
         dplyr::filter(speciesCode==spp$speciesCode[i],
-                      durationMethod %in% design$durationMethod,
+                      durationMethod %in% durdesign$durationMethod,
                       durationInterval!="UNKNOWN") %>%
         group_by(id, durationMethod, durationInterval) %>%
         summarize(abundance = sum(abundance)) %>%
@@ -110,7 +111,7 @@ for(i in 1:nrow(spp)){
         #9. Create design matrix----
         d <- x %>%
             dplyr::select(durationMethod) %>%
-            left_join(design, by="durationMethod") %>%
+            left_join(durdesign, by="durationMethod") %>%
             dplyr::select(-durationMethod) %>%
             as.matrix()
 
@@ -121,7 +122,7 @@ for(i in 1:nrow(spp)){
             separate(durationInterval, into=c("start", "end"), sep="-", remove=FALSE, extra="drop", fill="right") %>%
             mutate(start = as.numeric(start),
                    end = as.numeric(str_sub(end, -100, -4))) %>%
-            left_join(design %>%
+            left_join(durdesign %>%
                           pivot_longer(t01:t10, values_to="end", names_to="position"),
                       by=c("durationMethod", "end")) %>%
             dplyr::select(id, position, abundance) %>%
@@ -143,7 +144,7 @@ for(i in 1:nrow(spp)){
         #Save a bunch of metadata like sample size and aic value
         mod.list <- list()
         for (j in 1:length(mods)) {
-            f <- as.formula(paste0("y | d ", paste(as.character(mods[[i]]), collapse=" ")))
+            f <- as.formula(paste0("y | d ", paste(as.character(mods[[j]]), collapse=" ")))
             mod <- try(cmulti(f, x, type="rem"))
             if (!inherits(mod, "try-error")) {
                 rmvl <- mod[c("coefficients","vcov","nobs","loglik")]
@@ -164,5 +165,7 @@ for(i in 1:nrow(spp)){
 
 }
 
+names(avail) <- spp$speciesCode
+
 #14. Save out results----
-save(avail, file="results/availability_results_2022-10-06.Rdata")
+save(durdesign, avail, file="results/availability_results_2022-10-06.Rdata")
