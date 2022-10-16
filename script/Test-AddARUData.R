@@ -44,25 +44,44 @@ raw.aru <- rbindlist(dat.list, fill=TRUE)
 
 #5. Save date stamped data & project list----
 save(raw.aru, projects.aru, file=paste0("data/wildtrax_data_aru_", Sys.Date(), ".Rdata"))
-load("data/wildtrax_data_aru_2022-10-07.Rdata")
+load("data/wildtrax_data_aru_2022-10-15.Rdata")
 
 #B. CLEAN VISIT DATA####
+
+#1. Wrangle duration method----
+#Remove surveys with "none" method
+#Remove surveys that are not a factor of 60s
+#Remove tags that are after the indicated duration
+method <- raw.aru %>%
+    separate(method, into=c("duration", "tagMethod"), sep=" ", remove=FALSE) %>%
+    mutate(minutes = as.numeric(str_sub(duration, -100, -2))/60) %>%
+    dplyr::filter(tagMethod!="None",
+                  minutes %in% c(1:10),
+                  tag_start_s <= minutes*60) %>%
+    mutate(durationMethod = case_when(minutes==1 ~ "0-0.5-1min",
+                                      minutes==2 ~ "0-1-2min",
+                                      minutes==3 ~ "0-1-2-3min",
+                                      minutes==4 ~ "0-1-2-3-4min",
+                                      minutes==5 ~ "0-1-2-3-4-5min",
+                                      minutes==6 ~ "0-1-2-3-4-5-6min",
+                                      minutes==7 ~ "0-1-2-3-4-5-6-7min",
+                                      minutes==8 ~ "0-1-2-3-4-5-6-7-8min",
+                                      minutes==9 ~ "0-1-2-3-4-5-6-7-8-9min",
+                                      minutes==10 ~ "0-1-2-3-4-5-6-7-8-9-10min"))
 
 #1. Subset to visits & filter----
 #Remove surveys with no location
 #Standardize sig figs for location to remove duplicates
 #Remove human surveys (have date instead of recording_date)
-#Remove surveys with "none" method
-dat <- raw.aru %>%
-    dplyr::select(organization, project_name, location, latitude, longitude, observer, recording_date, method) %>%
-    rename(project = project_name, durationMethod = method) %>%
+dat <- method %>%
+    dplyr::select(organization, project_name, location, latitude, longitude, observer, recording_date, durationMethod) %>%
+    rename(project = project_name) %>%
     unique() %>%
     mutate(latitude = round(latitude, 5),
            longitude = round(longitude, 5)) %>%
     dplyr::filter(!is.na(latitude),
                   latitude > 0,
                   !is.na(recording_date)) %>%
-    dplyr::filter(durationMethod!="None") %>%
     unique()
 
 #2. Wrangle temporal variables----
@@ -186,7 +205,7 @@ visit.aru <- covariates %>%
            tssr2 = tssr^2,
            tsg2 = tsg^2) %>%
     dplyr::select(organization, project,  observer, durationMethod, location, lon, lat, datetime, year, julian, jday, jday2, hssr, tssr, tssr2, seedgrow, tsg, tsg2, bcr, province, country, tree, lcc2, lcc4) %>%
-    mutate(id = paste(project, location, observer, datetime),
+    mutate(id = paste(project, location, observer, durationMethod, datetime),
            distanceMethod = NA)
 
 #C. CLEAN BIRD DATA####
@@ -195,20 +214,23 @@ visit.aru <- covariates %>%
 #Remove surveys with no location
 #Remove outliers for day of year (use 99% quantile)
 #Ensure there's visit data
-dat.bird <- raw.aru %>%
-    rename(lat = latitude, lon = longitude, project = project_name, speciesCode = species_code, durationMethod = method) %>%
+#Remove UN sps
+dat.bird <- method %>%
+    rename(lat = latitude, lon = longitude, project = project_name, speciesCode = species_code) %>%
     mutate(datetime = ymd_hms(recording_date),
            julian = yday(datetime),
-           id = paste(project, location, observer, datetime)) %>%
+           id = paste(project, location, observer, durationMethod, datetime)) %>%
     dplyr::filter(!is.na(lat),
                   lat > 0,
                   !is.na(recording_date)) %>%
     dplyr::filter(julian > quantile(julian, 0.005),
                   julian < quantile(julian, 0.995)) %>%
     dplyr::filter(id %in% visit.aru$id) %>%
-    dplyr::select(id, organization, project, location, lat, lon, observer, datetime, durationMethod, speciesCode, tag_start_s, abundance, individual_appearance_order)
+    dplyr::filter(str_sub(speciesCode, 1, 2)!="UN") %>%
+    dplyr::select(id, organization, project, location, lat, lon, observer, datetime, durationMethod, speciesCode, tag_start_s, abundance, individual_appearance_order, species_comments)
 
 #2. Filter to just first detection per individual and bin in minutes----
+#bin in 30 s bins for 60 s surveys
 first <- dat.bird %>%
     group_by(id, organization, project, location, lat, lon, observer, datetime, durationMethod, speciesCode, abundance, individual_appearance_order) %>%
     mutate(first_tag = min(tag_start_s)) %>%
@@ -216,9 +238,11 @@ first <- dat.bird %>%
     dplyr::filter(tag_start_s == first_tag) %>%
     dplyr::select(-first_tag) %>%
     dplyr::filter(!abundance %in% c("CI 1", "CI 2", "CI 3", "N/A")) %>%
-    mutate(end=ceiling(tag_start_s/60),
+    mutate(end=ifelse(durationMethod=="0-0.5-1min", ceiling(tag_start_s/30), ceiling(tag_start_s/60)),
            end = ifelse(end==0, 1, end),
-           durationInterval = paste0(end-1, "-", end, "min"))
+           durationInterval = case_when(durationMethod=="0-0.5-1min" & end==1 ~ "0-0.5min",
+                                        durationMethod=="0-0.5-1min" & end==2 ~ "0.5-1min",
+                                        !is.na(durationMethod) ~ paste0(end-1, "-", end, "min")))
 
 #3. Replace TMTTs----
 #99 percentile for combination of species & observer
@@ -227,20 +251,41 @@ tmtttbl <- first %>%
     group_by(id, observer, speciesCode) %>%
     summarize(abundance = sum(as.numeric(abundance))) %>%
     group_by(speciesCode, observer) %>%
-    summarize(q = quantile(abundance, 0.99)) %>%
+    summarize(q = quantile(abundance, 0.99),
+              nobs = n()) %>%
     ungroup() %>%
     mutate(val = ceiling(q))
 
-bird.aru <- first %>%
+tmttn <- first %>%
+    dplyr::filter(abundance=="TMTT") %>%
+    group_by(observer, speciesCode) %>%
+    summarize(ntmtt=n()) %>%
+    ungroup() %>%
     left_join(tmtttbl) %>%
-    mutate(abundance = ifelse(abundance=="TMTT", val, as.numeric(abundance)),
+    dplyr::filter(!is.na(val)) %>%
+    mutate(ptmtt = ntmtt/nobs) %>%
+    mutate(obs = ifelse(ntmtt < 20, "observer", observer))
+
+lm.tmtt <- lme4::lmer(val ~ 1 + (1|speciesCode) + (1|obs), data=tmttn)
+summary(lm.tmtt)
+
+tmttpred <- data.frame(pred = predict(lm.tmtt)) %>%
+    cbind(data.frame(tmttn)) %>%
+    mutate(predabun = round(pred))
+
+ggplot(tmttpred) +
+    geom_hex(aes(x=val, y=predabun))
+
+bird.aru <- first %>%
+    left_join(tmttpred) %>%
+    mutate(abundance = as.numeric(ifelse(abundance=="TMTT", as.numeric(predabun), abundance)),
            distanceMethod = NA,
            distanceBand = NA) %>%
     dplyr::filter(!is.na(abundance)) %>%
     dplyr::select(id, organization, project, location, lat, lon, observer, datetime, durationMethod, distanceMethod, speciesCode, durationInterval, distanceBand, abundance)
 
 #4. Save----
-save(visit.aru, bird.aru, species,  file="data/cleaned_data_aru_2022-10-07.Rdata")
+save(visit.aru, bird.aru, file="data/cleaned_data_aru_2022-10-15.Rdata")
 
 #D. REMOVAL MODELLING####
 
@@ -266,31 +311,33 @@ mods <- list(
     ~ tsg + tssr + tssr2,
     ~ tsg + tsg2 + tssr + tssr2)
 names(mods) <- 0:14
-modnames <- c("(Intercept)",
-              "(Intercept) + jday",
-              "(Intercept) + tssr",
-              "(Intercept) + jday + jday2",
-              "(Intercept) + tssr + tssr2",
-              "(Intercept) + jday + tssr",
-              "(Intercept) + jday + jday2 + tssr",
-              "(Intercept) + jday + tssr + tssr2",
-              "(Intercept) + jday + jday2 + tssr + tssr2",
-              "(Intercept) + tsg",
-              "(Intercept) + tsg + tsg2",
-              "(Intercept) + tsg + tssr",
-              "(Intercept) + tsg + tsg2 + tssr",
-              "(Intercept) + tsg + tssr + tssr2",
-              "(Intercept) + tsg + tsg2 + tssr + tssr2")
+modnames <- list(
+    "0"="(Intercept)",
+    "1"=c("(Intercept)", "jday"),
+    "2"=c("(Intercept)", "tssr"),
+    "3"=c("(Intercept)", "jday", "jday2"),
+    "4"=c("(Intercept)", "tssr", "tssr2"),
+    "5"=c("(Intercept)", "jday", "tssr"),
+    "6"=c("(Intercept)", "jday", "jday2", "tssr"),
+    "7"=c("(Intercept)", "jday", "tssr", "tssr2"),
+    "8"=c("(Intercept)", "jday", "jday2", "tssr", "tssr2"),
+    "9"=c("(Intercept)", "tsg"),
+    "10"=c("(Intercept)", "tsg", "tsg2"),
+    "11"=c("(Intercept)", "tsg", "tssr"),
+    "12"=c("(Intercept)", "tsg", "tsg2", "tssr"),
+    "13"=c("(Intercept)", "tsg", "tssr", "tssr2"),
+    "14"=c("(Intercept)", "tsg", "tsg2", "tssr", "tssr2"))
 
-#2. Load point count data and put together----
+#2. Load data----
 load("data/cleaned_data_2022-10-06.Rdata")
+load("data/cleaned_data_aru_2022-10-15.Rdata")
 
-visit.all <- rbind(visit, visit.aru)
 bird.all <- rbind(bird, bird.aru)
+visit.all <- rbind(visit, visit.aru)
 
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out duration methods that aren't appropriate for removal modelling (only have 1 time bin)
-design <- visit %>%
+durdesign <- visit.all %>%
     dplyr::select(durationMethod) %>%
     unique() %>%
     dplyr::filter(!durationMethod %in% c("UNKNOWN", "0-10min", "0-20min", "0-5min", "0-3min", "0-2min")) %>%
@@ -302,21 +349,21 @@ design <- visit %>%
 #4. Get list of species to process----
 spp <- species %>%
     dplyr::filter(Singing_birds==TRUE) %>%
-    left_join(bird %>%
+    left_join(bird.all %>%
                   dplyr::select(speciesCode) %>%
                   unique()) %>%
     arrange(speciesCode)
 
 #5. Set up loop for species----
-species.list <- list()
+avail <- list()
 for(i in 1:nrow(spp)){
 
     #6. Filter abundance data for species---
     # filter out observations with unknown duration method or interval
     # filter to observations with covariates
-    bird.i <- bird %>%
+    bird.i <- bird.all %>%
         dplyr::filter(speciesCode==spp$speciesCode[i],
-                      durationMethod %in% design$durationMethod,
+                      durationMethod %in% durdesign$durationMethod,
                       durationInterval!="UNKNOWN") %>%
         group_by(id, durationMethod, durationInterval) %>%
         summarize(abundance = sum(abundance)) %>%
@@ -328,12 +375,12 @@ for(i in 1:nrow(spp)){
         #7. Replace abundance outliers (defined as 99% quantile across species) with 99% quantile of abundance----
         if(max(bird.i$abundance) > quantile(bird$abundance, 0.99)){
             bird.i <- bird.i %>%
-                mutate(abundance = ifelse(abundance > quantile(abundance, 0.99), round(quantile(abundance, 0.99)), abundance))
+                mutate(abundance = ifelse(abundance > quantile(abundance, 0.99), ceiling(quantile(abundance, 0.99)), abundance))
         }
 
         #8. Filter visit covariates----
         #Remove records with nas in covariates
-        x <- visit %>%
+        x <- visit.all %>%
             dplyr::filter(id %in% unique(bird.i$id),
                           !is.na(tssr),
                           !is.na(tsg),
@@ -344,7 +391,7 @@ for(i in 1:nrow(spp)){
         #9. Create design matrix----
         d <- x %>%
             dplyr::select(durationMethod) %>%
-            left_join(design, by="durationMethod") %>%
+            left_join(durdesign, by="durationMethod") %>%
             dplyr::select(-durationMethod) %>%
             as.matrix()
 
@@ -355,7 +402,7 @@ for(i in 1:nrow(spp)){
             separate(durationInterval, into=c("start", "end"), sep="-", remove=FALSE, extra="drop", fill="right") %>%
             mutate(start = as.numeric(start),
                    end = as.numeric(str_sub(end, -100, -4))) %>%
-            left_join(design %>%
+            left_join(durdesign %>%
                           pivot_longer(t01:t10, values_to="end", names_to="position"),
                       by=c("durationMethod", "end")) %>%
             dplyr::select(id, position, abundance) %>%
@@ -380,23 +427,17 @@ for(i in 1:nrow(spp)){
             f <- as.formula(paste0("y | d ", paste(as.character(mods[[j]]), collapse=" ")))
             mod <- try(cmulti(f, x, type="rem"))
             if (!inherits(mod, "try-error")) {
-                rmvl <- data.frame(t(data.frame(mod["coefficients"]))) %>%
-                    mutate(nobs=mod["nobs"]$nobs,
-                           loglik = mod["loglik"]$loglik,
-                           df = length(coef(mod)),
-                           aic = AIC(mod),
-                           aicc = aic + (2*df^2+2*df) / (nrow(y)-df-1),
-                           model = modnames[j],
-                           species = spp$speciesCode[i])
+                rmvl <- mod[c("coefficients","vcov","nobs","loglik")]
+                rmvl$p <- length(coef(mod))
+                rmvl$names <- modnames[[j]]
             } else {
-                rmvl <- data.frame(nobs="try-error",
-                                   species=spp$speciesCode[i])
+                rmvl <- mod
             }
-            mod.list[[j]] <- rmvl
+            mod.list[[names(modnames)[j]]] <- rmvl
         }
 
         #13. Save model results to species list---
-        species.list[[i]] <- rbindlist(mod.list, fill=TRUE)
+        avail[[i]] <- mod.list
 
     }
 
@@ -404,16 +445,7 @@ for(i in 1:nrow(spp)){
 
 }
 
-species.out <- rbindlist(species.list, fill=TRUE)
+names(avail) <- spp$speciesCode
 
-#14. Identify species that failed----
-species.fail <- species.out %>%
-    dplyr::filter(nobs=="try-error") %>%
-    dplyr::select(species) %>%
-    unique()
-
-species.use <- species.out %>%
-    dplyr::filter(!species %in% species.fail$species)
-
-#15. Save
-save(species.out, species.use, file="results/availability_results_aru_2022-10-07.Rdata")
+#14. Save out results----
+save(durdesign, avail, file="results/availability_results_aru_2022-10-15.Rdata")
