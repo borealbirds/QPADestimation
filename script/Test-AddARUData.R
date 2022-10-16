@@ -456,3 +456,271 @@ names(avail) <- spp$speciesCode
 
 #14. Save out results----
 save(durdesign, avail, file="results/availability_results_aru_2022-10-15.Rdata")
+
+#E. PACKAGE####
+load("results/availability_results_aru_2022-10-15.Rdata")
+load("results/BAMCOEFS_QPAD_v4.rda")
+
+#1. Remove species that didn't have enough data----
+resDurOK <- avail[!sapply(avail, length)==0]
+c(OK=length(resDurOK), failed=length(avail)-length(resDurOK), all=length(avail))
+
+#2. Remove species where null model failed---
+resDur <- resDurOK[!t(sapply(resDurOK, function(z) ifelse(sapply(z, inherits, what="try-error"), 0L, 1L)))[,1]==0]
+
+#3. Create 0/1 table for model fit----
+sra_mod <- t(sapply(resDur, function(z)
+    ifelse(sapply(z, inherits, what="try-error"), 0L, 1L)))
+
+#3. Adjust lists to include all species there's an estimate for----
+tmp <- rownames(sra_mod)
+
+sra_models <- matrix(0L, length(tmp), ncol(sra_mod))
+dimnames(sra_models) <- list(tmp, colnames(sra_mod))
+sra_models[rownames(sra_mod),] <- sra_mod
+
+#4. Check for dropped factor levels in removal models----
+for (spp in rownames(sra_mod)) {
+    for (mid in colnames(sra_models)) {
+        if (!inherits(resDur[[spp]][[mid]], "try-error")) {
+            lcf <- length(resDur[[spp]][[mid]]$coefficients)
+            lnm <- length(resDur[[spp]][[mid]]$names)
+            if (lcf != lnm) {
+                cat("SRA conflict for", spp, "model", mid,
+                    "( len.coef =", lcf, ", len.name =", lnm, ")\n")
+                sra_models[spp,mid] <- 0
+            }
+        } else {
+            resDur[[spp]][[mid]] <- structure("Error", class = "try-error")
+        }
+        flush.console()
+    }
+}
+
+#6. Exclude species with no null model----
+sra_models[sra_models[,1]==0,] <- 0L
+
+#7. Exclude species with phi estimate < 0.01----
+phi0 <- sapply(resDur, function(z) exp(z[["0"]]$coefficients))
+names(phi0) <- names(resDur)
+sra_models[names(phi0)[phi0 < 0.01],] <- 0L
+
+#8. Get number of models----
+sra_nmod <- ncol(sra_mod)
+
+#9. Get sample sizes----
+sra_n <- numeric(length(tmp))
+names(sra_n) <- tmp
+sra_nn <- sapply(resDur, function(z) ifelse(inherits(z[["0"]], "try-error"),
+                                            NA, z[["0"]]$nobs))
+sra_n[names(sra_nn)] <- sra_nn
+
+#10. exclude all models for species with < n.con observations----
+n.con <- 25
+sra_models[sra_n < n.con, ] <- 0L
+
+#11. Exclude everything but null for species with n.con < observations < n.min----
+n.min <- 75
+sra_models[sra_n < n.min & sra_n >= n.con, 2:ncol(sra_models)] <- 0L
+
+#12. ID species to keep----
+spp <- tmp[rowSums(sra_models) > 0]
+length(spp)
+
+sra_models <- sra_models[spp,]
+sra_models <- sra_models[.BAMCOEFS4$spp,]
+
+sra_n <- sra_n[spp]
+
+#13. Get number of parameters----
+#use OVEN as template
+sra_df <- sapply(resDur[["OVEN"]][1:sra_nmod], "[[", "p")
+
+#14. Get estimates----
+sra_estimates <- resDur[spp]
+
+#15. Get species table----
+tax <- read.csv("data/taxonomytable.csv")
+tax <- tax[!duplicated(tax$Species_ID),]
+rownames(tax) <- tax$Species_ID
+spp_table <- data.frame(spp=spp,
+                        scientific_name=tax[spp, "Scientific_Name"],
+                        common_name=tax[spp, "English_Name"])
+rownames(spp_table) <- spp
+spp_table <- droplevels(spp_table)
+
+#16. Get variable names for different models----
+#use OVEN as template
+sra_list <- sapply(sra_estimates[["OVEN"]], function(z) paste(z$names, collapse=" + "))
+
+#16. Get loglik values---
+sra_loglik <- sra_models
+sra_loglik[] <- -Inf
+for (i in .BAMCOEFS4$spp) { # species
+    for (j in 1:sra_nmod) { # models
+        if (sra_models[i,j] > 0)
+            sra_loglik[i,j] <- resDur[[i]][[j]]$loglik
+    }
+}
+
+#17. Get AIC values----
+sra_aic <- sra_aicc <- sra_bic <- sra_loglik
+sra_aic[] <- Inf
+sra_aicc[] <- Inf
+sra_bic[] <- Inf
+for (i in .BAMCOEFS4$spp) {
+    sra_aic[i,] <- -2*sra_loglik[i,] + 2*sra_df
+    sra_aicc[i,] <- sra_aic[i,] + (2*sra_df*(sra_df+1)) / (sra_n[i]-sra_df-1)
+    sra_bic[i,] <- -2*sra_loglik[i,] + log(sra_n[i])*sra_df
+}
+
+#18. Rank models----
+sra_aicrank <- t(apply(sra_aic, 1, rank))*sra_models
+sra_aicrank[sra_aicrank==0] <- NA
+
+sra_aiccrank <- t(apply(sra_aicc, 1, rank))*sra_models
+sra_aiccrank[sra_aiccrank==0] <- NA
+
+sra_bicrank <- t(apply(sra_bic, 1, rank))*sra_models
+sra_bicrank[sra_bicrank==0] <- NA
+
+sra_aicbest <- apply(sra_aicrank, 1, function(z) colnames(sra_models)[which.min(z)])
+sra_aiccbest <- apply(sra_aiccrank, 1, function(z) colnames(sra_models)[which.min(z)])
+sra_bicbest <- apply(sra_bicrank, 1, function(z) colnames(sra_models)[which.min(z)])
+
+#19. Set version----
+version <- "4aru"
+
+#20. Bundle----
+bamcoefs <- list(spp=spp,
+                 spp_table=spp_table,
+                 edr_list=.BAMCOEFS4$edr_list,
+                 sra_list=sra_list,
+                 edr_models=.BAMCOEFS4$edr_models,
+                 sra_models=sra_models,
+                 edr_n=.BAMCOEFS4$edr_n,
+                 sra_n=sra_n,
+                 edr_df=.BAMCOEFS4$edr_df,
+                 sra_df=sra_df,
+                 edr_loglik=.BAMCOEFS4$edr_loglik,
+                 sra_loglik=sra_loglik,
+                 edr_aic=.BAMCOEFS4$edr_aic,
+                 sra_aic=sra_aic,
+                 edr_aicc=.BAMCOEFS4$edr_aicc,
+                 sra_aicc=sra_aicc,
+                 edr_bic=.BAMCOEFS4$edr_bic,
+                 sra_bic=sra_bic,
+                 edr_aicrank=.BAMCOEFS4$edr_aicrank,
+                 sra_aicrank=sra_aicrank,
+                 edr_aiccrank=.BAMCOEFS4$edr_aiccrank,
+                 sra_aiccrank=sra_aiccrank,
+                 edr_bicrank=.BAMCOEFS4$edr_bicrank,
+                 sra_bicrank=sra_bicrank,
+                 edr_aicbest=.BAMCOEFS4$edr_aicbest,
+                 sra_aicbest=sra_aicbest,
+                 edr_aiccbest=.BAMCOEFS4$edr_aiccbest,
+                 sra_aiccbest=sra_aiccbest,
+                 edr_bicbest=.BAMCOEFS4$edr_bicbest,
+                 sra_bicbest=sra_bicbest,
+                 edr_estimates=.BAMCOEFS4$edr_estimates,
+                 sra_estimates=sra_estimates,
+                 version=version)
+.BAMCOEFS4aru <- list2env(bamcoefs)
+
+save(.BAMCOEFS4aru, file="results/BAMCOEFS_QPAD_v4_aru.rda")
+
+#F. COMPARE####
+load("results/BAMCOEFS_QPAD_v4.rda")
+load("results/BAMCOEFS_QPAD_v4_aru.rda")
+
+my.theme <- theme_classic() +
+    theme(text=element_text(size=12, family="Arial"),
+          axis.text.x=element_text(size=12),
+          axis.text.y=element_text(size=12),
+          axis.title.x=element_text(margin=margin(10,0,0,0)),
+          axis.title.y=element_text(margin=margin(0,10,0,0)),
+          axis.line.x=element_line(linetype=1),
+          axis.line.y=element_line(linetype=1),
+          legend.text=element_text(size=12),
+          legend.title=element_text(size=12),
+          plot.title=element_text(size=12, hjust = 0.5))
+
+#Recall list of models
+names4 <- data.frame(name = .BAMCOEFS4$sra_list,
+                     mod = names(.BAMCOEFS4$sra_list))
+
+#3. Sample size----
+n4 <- data.frame(sra.n4=.BAMCOEFS4$sra_n,
+                 species=.BAMCOEFS4$spp)
+naru <- data.frame(sra.naru=.BAMCOEFS4aru$sra_n,
+                 species=.BAMCOEFS4aru$spp)
+
+n4aru <- full_join(n4, naru) %>%
+    mutate(sra.n4 = as.numeric(sra.n4),
+           sra.naru = ifelse(is.na(sra.naru), 0, sra.naru),
+           sra.n4 = ifelse(is.na(sra.n4), 0, sra.n4),
+           sra.n = sra.naru/sra.n4) %>%
+    mutate(version = case_when(sra.n4==0 ~ "V4",
+                               sra.naru==0 ~ "V4 + ARU",
+                               !is.na(sra.n) ~ "Both"))
+
+sum(n4aru$sra.n4)
+sum(n4aru$sra.naru)
+
+ggplot(n4aru) +
+    geom_abline(intercept = 0, slope = 1) +
+    geom_point(aes(x=sra.n4, y=sra.naru, fill=version), pch=21, alpha = 0.5, size=4) +
+    xlab("V4 sample size") +
+    ylab("V4 + ARU sample size") +
+    scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
+    my.theme
+
+ggsave(filename="figures/ARU_samplesize.jpeg", width =7, height=6)
+
+#4. Null estimates----
+est4 <-data.frame()
+for(i in 1:length(.BAMCOEFS4$spp)){
+    sra4 <- exp(.BAMCOEFS4$sra_estimates[[i]]$`0`$coefficients)
+    edr4 <- exp(.BAMCOEFS4$edr_estimates[[i]]$`0`$coefficients)
+    est4 <- rbind(est4,
+                  data.frame(sra4=sra4, edr4=edr4, species=.BAMCOEFS4$spp[i]))
+}
+rownames(est4) <- NULL
+
+estaru <-data.frame()
+for(i in 1:length(.BAMCOEFS4$spp)){
+    sraaru <- exp(.BAMCOEFS4aru$sra_estimates[[i]]$`0`$coefficients)
+    edraru <- exp(.BAMCOEFS4aru$edr_estimates[[i]]$`0`$coefficients)
+    estaru <- rbind(estaru,
+                  data.frame(sraaru=sraaru, edraru=edraru, species=.BAMCOEFS4$spp[i]))
+}
+rownames(estaru) <- NULL
+
+est4aru <- full_join(est4, estaru) %>%
+    mutate(edraru = ifelse(is.na(edraru), 0, edraru),
+           sraaru = ifelse(is.na(sraaru), 0, sraaru),
+           edr4 = ifelse(is.na(edr4), 0, edr4),
+           sra4 = ifelse(is.na(sra4), 0, sra4)) %>%
+    mutate(version = case_when(edraru==0 ~ "V4",
+                               edr4==0 ~ "V4 + ARU",
+                               !is.na(edr4) ~ "Both")) %>%
+    left_join(n4aru)
+
+est4aru$SampleSizeRatio <- est4aru$sra.n
+ggplot(est4aru) +
+    geom_abline(intercept = 0, slope = 1) +
+    geom_point(aes(x=sra4, y=sraaru, size = SampleSizeRatio), pch=21, alpha = 0.5, fill="grey80") +
+    xlab("V4 availability estimate (phi)") +
+    ylab("V4 + ARU availability estimate (phi)") +
+    my.theme
+
+ggsave(filename="figures/ARU_phi.jpeg", width =7, height=6)
+
+ggplot(est4aru) +
+    geom_abline(intercept = 0, slope = 1) +
+    geom_text(aes(x=log(sra4), y=log(sraaru), label=species)) +
+    xlab("V4 availability estimate (phi)") +
+    ylab("V4 + ARU availability estimate (phi)") +
+    my.theme
+
+ggsave(filename="figures/ARU_phi_species.jpeg", width =7, height=6)

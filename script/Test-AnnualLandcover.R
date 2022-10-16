@@ -269,3 +269,318 @@ names(percep) <- spp$speciesCode
 #13. Save out results----
 save(percep, distdesign, file="results/perceptability_results_annualLC_2022-10-06.Rdata")
 
+#C. PACKAGE####
+
+load("results/perceptability_results_annualLC_2022-10-06.Rdata")
+load("results/BAMCOEFS_QPAD_v4.rda")
+
+#1. Remove species that didn't have enough data----
+resDisOK <- percep[!sapply(percep, length)==0]
+c(OK=length(resDisOK), failed=length(percep)-length(resDisOK), all=length(percep))
+
+#2. Remove species where null model failed----
+resDis <- resDisOK[!t(sapply(resDisOK, function(z) ifelse(sapply(z, inherits, what="try-error"), 0L, 1L)))[,1]==0]
+
+#3. Create 0/1 table for model fit----
+edr_mod <- t(sapply(resDis, function(z)
+    ifelse(sapply(z, inherits, what="try-error"), 0L, 1L)))
+
+#4. Adjust lists to include all species there's an estimate for----
+tmp <- rownames(edr_mod)
+edr_models <- matrix(0L, length(tmp), ncol(edr_mod))
+dimnames(edr_models) <- list(tmp, colnames(edr_mod))
+edr_models[rownames(edr_mod),] <- edr_mod
+
+#4. Check for dropped factor levels & min # of detections within each class for detectability models----
+n.min.class <- 5 # min number of detections within each class
+for (spp in rownames(edr_mod)) {
+    ## data for checking detections in classes
+    bird.i <- bird %>%
+        dplyr::filter(speciesCode==spp,
+                      distanceMethod %in% distdesign$distanceMethod,
+                      distanceBand!="UNKNOWN") %>%
+        dplyr::select(id) %>%
+        unique()
+    Dat <- visit %>%
+        dplyr::filter(id %in% unique(bird.i$id),
+                      !is.na(tree),
+                      !is.na(lcc2),
+                      !is.na(lcc4)) %>%
+        arrange(id) %>%
+        dplyr::select(lcc2, lcc4)
+    for (mid in colnames(edr_models)) {
+        if (!inherits(resDis[[spp]][[mid]], "try-error")) {
+            lcf <- length(resDis[[spp]][[mid]]$coefficients)
+            lnm <- length(resDis[[spp]][[mid]]$names)
+            if (lcf != lnm) {
+                cat("EDR conflict for", spp, "model", mid,
+                    "( len.coef =", lcf, ", len.name =", lnm, ")\n")
+                edr_models[spp,mid] <- 0
+            } else {
+                if (mid %in% c("2", "4") && min(table(Dat$lcc2)) < n.min.class) {
+                    cat("EDR LCC2 min issue for", spp, "model", mid, "\n")
+                    edr_models[spp,mid] <- 0
+                }
+                if (mid %in% c("3", "5") && min(table(Dat$lcc4)) < n.min.class) {
+                    cat("EDR LCC4 min issue for", spp, "model", mid, "\n")
+                    edr_models[spp,mid] <- 0
+                }
+                if (mid %in% c("1", "4", "5") &&
+                    resDis[[spp]][[mid]]$coefficients["log.tau_cover"] > 0) {
+                    cat("EDR TREE > 0 issue for", spp, "model", mid, "\n")
+                    edr_models[spp,mid] <- 0
+                }
+            }
+        } else {
+            resDis[[spp]][[mid]] <- structure("Error", class = "try-error")
+            attributes(resDis[[spp]][[mid]]) <- NULL
+            class(resDis[[spp]][[mid]]) <- "try-error"
+        }
+        flush.console()
+    }
+}
+
+#6. Exclude species with no null model----
+edr_models[edr_models[,1]==0,] <- 0L
+
+#8. Get number of models----
+edr_nmod <- ncol(edr_mod)
+
+#9. Get sample sizes----
+edr_n <- numeric(length(tmp))
+names(edr_n) <- tmp
+edr_nn <- sapply(resDis, function(z) ifelse(inherits(z[["0"]], "try-error"),
+                                            NA, z[["0"]]$nobs))
+edr_n[names(edr_nn)] <- edr_nn
+
+#10. exclude all models for species with < n.con observations----
+n.con <- 25
+edr_models[edr_n < n.con, ] <- 0L
+
+#11. Exclude everything but null for species with n.con < observations < n.min----
+n.min <- 75
+edr_models[edr_n < n.min & edr_n >= n.con, 2:ncol(edr_models)] <- 0L
+
+#12. ID species to keep----
+spp <- tmp[rowSums(edr_models) > 0]
+length(spp)
+
+edr_models <- edr_models[spp,]
+edr_models <- edr_models[.BAMCOEFS4$spp,]
+
+edr_n <- edr_n[.BAMCOEFS4$spp]
+
+#13. Get number of parameters----
+#use OVEN as template
+edr_df <- sapply(resDis[["OVEN"]][1:edr_nmod], "[[", "p")
+
+#14. Get estimates----
+edr_estimates <- resDis[spp]
+
+#15. Get species table----
+tax <- read.csv("data/taxonomytable.csv")
+tax <- tax[!duplicated(tax$Species_ID),]
+rownames(tax) <- tax$Species_ID
+spp_table <- data.frame(spp=spp,
+                        scientific_name=tax[spp, "Scientific_Name"],
+                        common_name=tax[spp, "English_Name"])
+rownames(spp_table) <- spp
+spp_table <- droplevels(spp_table)
+
+#16. Get variable names for different models----
+#use OVEN as template
+edr_list <- sapply(edr_estimates[["OVEN"]], function(z) paste(z$names, collapse=" + "))
+
+#16. Get loglik values---
+edr_loglik <- edr_models
+edr_loglik[] <- -Inf
+for (i in .BAMCOEFS4$spp) { # species
+    for (j in 1:edr_nmod) { # models
+        if (edr_models[i,j] > 0)
+            edr_loglik[i,j] <- resDis[[i]][[j]]$loglik
+    }
+}
+
+#17. Get AIC values----
+edr_aic <- edr_aicc <- edr_bic <- edr_loglik
+edr_aic[] <- Inf
+edr_aicc[] <- Inf
+edr_bic[] <- Inf
+for (i in .BAMCOEFS4$spp) {
+    edr_aic[i,] <- -2*edr_loglik[i,] + 2*edr_df
+    edr_aicc[i,] <- edr_aic[i,] + (2*edr_df*(edr_df+1)) / (edr_n[i]-edr_df-1)
+    edr_bic[i,] <- -2*edr_loglik[i,] + log(edr_n[i])*edr_df
+}
+
+#18. Rank models----
+edr_aicrank <- t(apply(edr_aic, 1, rank))*edr_models
+edr_aicrank[edr_aicrank==0] <- NA
+
+edr_aiccrank <- t(apply(edr_aicc, 1, rank))*edr_models
+edr_aiccrank[edr_aiccrank==0] <- NA
+
+edr_bicrank <- t(apply(edr_bic, 1, rank))*edr_models
+edr_bicrank[edr_bicrank==0] <- NA
+
+edr_aicbest <- apply(edr_aicrank, 1, function(z) colnames(edr_models)[which.min(z)])
+edr_aiccbest <- apply(edr_aiccrank, 1, function(z) colnames(edr_models)[which.min(z)])
+edr_bicbest <- apply(edr_bicrank, 1, function(z) colnames(edr_models)[which.min(z)])
+
+#19. Set version----
+version <- "4lc"
+
+#20. Bundle----
+bamcoefs <- list(spp=.BAMCOEFS4$spp,
+                 spp_table=spp_table,
+                 edr_list=edr_list,
+                 sra_list=.BAMCOEFS4$sra_list,
+                 edr_models=edr_models,
+                 sra_models=.BAMCOEFS4$sra_models,
+                 edr_n=edr_n,
+                 sra_n=.BAMCOEFS4$sra_n,
+                 edr_df=edr_df,
+                 sra_df=.BAMCOEFS4$sra_df,
+                 edr_loglik=edr_loglik,
+                 sra_loglik=.BAMCOEFS4$sra_loglik,
+                 edr_aic=edr_aic,
+                 sra_aic=.BAMCOEFS4$sra_aic,
+                 edr_aicc=edr_aicc,
+                 sra_aicc=.BAMCOEFS4$sra_aicc,
+                 edr_bic=edr_bic,
+                 sra_bic=.BAMCOEFS4$sra_bic,
+                 edr_aicrank=edr_aicrank,
+                 sra_aicrank=.BAMCOEFS4$sra_aicrank,
+                 edr_aiccrank=edr_aiccrank,
+                 sra_aiccrank=.BAMCOEFS4$sra_aiccrank,
+                 edr_bicrank=edr_bicrank,
+                 sra_bicrank=.BAMCOEFS4$sra_bicrank,
+                 edr_aicbest=edr_aicbest,
+                 sra_aicbest=.BAMCOEFS4$sra_aicbest,
+                 edr_aiccbest=edr_aiccbest,
+                 sra_aiccbest=.BAMCOEFS4$sra_aiccbest,
+                 edr_bicbest=edr_bicbest,
+                 sra_bicbest=.BAMCOEFS4$sra_bicbest,
+                 edr_estimates=edr_estimates,
+                 sra_estimates=.BAMCOEFS4$sra_estimates,
+                 version=version)
+.BAMCOEFS4lc <- list2env(bamcoefs)
+
+save(.BAMCOEFS4lc, file="results/BAMCOEFS_QPAD_v4_lc.rda")
+
+#D. COMPARE####
+
+load("results/BAMCOEFS_QPAD_v4.rda")
+load("results/BAMCOEFS_QPAD_v4_lc.rda")
+
+my.theme <- theme_classic() +
+    theme(text=element_text(size=12, family="Arial"),
+          axis.text.x=element_text(size=12),
+          axis.text.y=element_text(size=12),
+          axis.title.x=element_text(margin=margin(10,0,0,0)),
+          axis.title.y=element_text(margin=margin(0,10,0,0)),
+          axis.line.x=element_line(linetype=1),
+          axis.line.y=element_line(linetype=1),
+          legend.text=element_text(size=12),
+          legend.title=element_text(size=12),
+          plot.title=element_text(size=12, hjust = 0.5))
+
+#Recall list of models
+names <- data.frame(name = .BAMCOEFS4$edr_list,
+                    mod = names(.BAMCOEFS4$edr_list))
+
+#1. Best model----
+mod <- data.frame(mod4 = .BAMCOEFS4$edr_aicbest,
+                    mod4lc = .BAMCOEFS4lc$edr_aicbest,
+                    spp = .BAMCOEFS4$spp) %>%
+    mutate(same = ifelse(mod4==mod4lc, 1, 0)) %>%
+    left_join(names %>%
+                  rename(mod4=mod, name4=name)) %>%
+    left_join(names %>%
+                  rename(mod4lc = mod, name4lc = name))
+table(mod$same)
+table(mod$mod4)
+table(mod$mod4lc)
+
+#2. Tree effect----
+#Multiply hermosilla by 100 to put on same scale
+treedf <-data.frame()
+for(i in 1:length(.BAMCOEFS4$spp)){
+    tree <- .BAMCOEFS4$edr_estimates[[i]]$`1`$coefficients[2]
+    treelc <- .BAMCOEFS4lc$edr_estimates[[i]]$`1`$coefficients[2]*100
+    treedf <- rbind(treedf,
+                  data.frame(tree=tree, treelc=treelc, .BAMCOEFS4$spp[[i]]))
+}
+rownames(treedf) <- NULL
+treedf$conflict <- ifelse(treedf$tree > 0, 1, 0)
+treedf$conflictlc <- ifelse(treedf$treelc > 0, 1, 0)
+treedf$conflictv <- case_when((treedf$conflict==1 & treedf$conflictlc==1) ~ "Both",
+                              (treedf$conflict==1 & treedf$conflictlc==0) ~ "V4",
+                              (treedf$conflict==0 & treedf$conflictlc==1) ~ "Annual LC",
+                              !is.na(treedf$conflict) ~ "Neither")
+
+
+treen <- data.frame(table(treedf$conflictv)) %>%
+    rename(conflictv = Var1) %>%
+    mutate(text = paste0("n = ", Freq),
+           x = c(-1,1,-1,1),
+           y=c(1,1,-1,-1))
+
+ggplot(treedf) +
+    geom_hline(yintercept = 0) +
+    geom_vline(xintercept = 0) +
+    geom_point(aes(x=tree, y=treelc, fill=conflictv), pch=21, alpha = 0.5, size=4) +
+    geom_text(data=treen, aes(x=x, y=y, label=text)) +
+    xlab("Existing cover dataset effect on perceptibility") +
+    ylab("Hansen annual cover effect on perceptibility") +
+    scale_fill_viridis_d(name="Beta > 0") +
+    ylim(c(-1.5,1.5)) +
+    xlim(c(-1.5,1.5)) +
+    my.theme
+
+ggsave(filename="figures/AnnualLC_tree.jpeg", width =7, height=6)
+
+
+#3. Open effect----
+opendf <-data.frame()
+for(i in 1:length(.BAMCOEFS4$spp)){
+    rm(open, openlc)
+    if(class(.BAMCOEFS4$edr_estimates[[i]]$`2`)!="try-error"){
+        open <- .BAMCOEFS4$edr_estimates[[i]]$`2`$coefficients[2]
+    }
+    if(class(.BAMCOEFS4lc$edr_estimates[[i]]$`2`)!="try-error"){
+        openlc <- .BAMCOEFS4lc$edr_estimates[[i]]$`2`$coefficients[2]
+    }
+    opendf <- rbind(opendf,
+                    data.frame(open=ifelse(exists("open"), open, NA),
+                               openlc=ifelse(exists("openlc"), openlc, NA),
+                               .BAMCOEFS4$spp[[i]]))
+}
+rownames(opendf) <- NULL
+
+opendf$conflict <- ifelse(opendf$open < 0, 1, 0)
+opendf$conflictlc <- ifelse(opendf$openlc < 0, 1, 0)
+opendf$conflictv <- case_when((opendf$conflict==1 & opendf$conflictlc==1) ~ "Both",
+                              (opendf$conflict==1 & opendf$conflictlc==0) ~ "V4",
+                              (opendf$conflict==0 & opendf$conflictlc==1) ~ "Annual LC",
+                              !is.na(opendf$conflict) ~ "Neither")
+
+
+openn <- data.frame(table(opendf$conflictv)) %>%
+    rename(conflictv = Var1) %>%
+    mutate(text = paste0("n = ", Freq),
+           x = c(-1,1,-1,1),
+           y=c(1,1,-1,-1))
+
+ggplot(opendf) +
+    geom_hline(yintercept = 0) +
+    geom_vline(xintercept = 0) +
+    geom_point(aes(x=open, y=openlc, fill=conflictv), pch=21, alpha = 0.5, size=4) +
+    geom_text(data=openn, aes(x=x, y=y, label=text)) +
+    xlab("LCC open effect on perceptibility") +
+    ylab("Hermosilla annual open effect on perceptibility") +
+    scale_fill_viridis_d(name="Beta < 0") +
+    ylim(c(-1.5,1.5)) +
+    xlim(c(-1.5,1.5)) +
+    my.theme
+
+ggsave(filename="figures/AnnualLC_open.jpeg", width =7, height=6)

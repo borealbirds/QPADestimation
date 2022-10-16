@@ -360,3 +360,231 @@ names(avail) <- spp$speciesCode
 
 #14. Save out results----
 save(durdesign, avail, file="results/availability_results_phenology_2022-10-06.Rdata")
+
+#C. PACKAGE####
+
+load("results/availability_results_phenology_2022-10-06.Rdata")
+load("results/BAMCOEFS_QPAD_v4.rda")
+
+#1. Remove species that didn't have enough data----
+resDurOK <- avail[!sapply(avail, length)==0]
+c(OK=length(resDurOK), failed=length(avail)-length(resDurOK), all=length(avail))
+
+#2. Remove species where null model failed---
+resDur <- resDurOK[!t(sapply(resDurOK, function(z) ifelse(sapply(z, inherits, what="try-error"), 0L, 1L)))[,1]==0]
+
+#3. Create 0/1 table for model fit----
+sra_mod <- t(sapply(resDur, function(z)
+    ifelse(sapply(z, inherits, what="try-error"), 0L, 1L)))
+
+#3. Adjust lists to include all species there's an estimate for----
+tmp <- rownames(sra_mod)
+
+sra_models <- matrix(0L, length(tmp), ncol(sra_mod))
+dimnames(sra_models) <- list(tmp, colnames(sra_mod))
+sra_models[rownames(sra_mod),] <- sra_mod
+
+#4. Check for dropped factor levels in removal models----
+for (spp in rownames(sra_mod)) {
+    for (mid in colnames(sra_models)) {
+        if (!inherits(resDur[[spp]][[mid]], "try-error")) {
+            lcf <- length(resDur[[spp]][[mid]]$coefficients)
+            lnm <- length(resDur[[spp]][[mid]]$names)
+            if (lcf != lnm) {
+                cat("SRA conflict for", spp, "model", mid,
+                    "( len.coef =", lcf, ", len.name =", lnm, ")\n")
+                sra_models[spp,mid] <- 0
+            }
+        } else {
+            resDur[[spp]][[mid]] <- structure("Error", class = "try-error")
+        }
+        flush.console()
+    }
+}
+
+#6. Exclude species with no null model----
+sra_models[sra_models[,1]==0,] <- 0L
+
+#7. Exclude species with phi estimate < 0.01----
+phi0 <- sapply(resDur, function(z) exp(z[["0"]]$coefficients))
+names(phi0) <- names(resDur)
+sra_models[names(phi0)[phi0 < 0.01],] <- 0L
+
+#8. Get number of models----
+sra_nmod <- ncol(sra_mod)
+
+#9. Get sample sizes----
+sra_n <- numeric(length(tmp))
+names(sra_n) <- tmp
+sra_nn <- sapply(resDur, function(z) ifelse(inherits(z[["0"]], "try-error"),
+                                            NA, z[["0"]]$nobs))
+sra_n[names(sra_nn)] <- sra_nn
+
+#10. exclude all models for species with < n.con observations----
+n.con <- 25
+sra_models[sra_n < n.con, ] <- 0L
+
+#11. Exclude everything but null for species with n.con < observations < n.min----
+n.min <- 75
+sra_models[sra_n < n.min & sra_n >= n.con, 2:ncol(sra_models)] <- 0L
+
+#12. ID species to keep----
+spp <- tmp[rowSums(sra_models) > 0]
+length(spp)
+
+sra_models <- sra_models[spp,]
+sra_models <- sra_models[.BAMCOEFS4$spp,]
+
+sra_n <- sra_n[spp]
+
+#13. Get number of parameters----
+#use OVEN as template
+sra_df <- sapply(resDur[["OVEN"]][1:sra_nmod], "[[", "p")
+
+#14. Get estimates----
+sra_estimates <- resDur[spp]
+
+#15. Get species table----
+tax <- read.csv("data/taxonomytable.csv")
+tax <- tax[!duplicated(tax$Species_ID),]
+rownames(tax) <- tax$Species_ID
+spp_table <- data.frame(spp=spp,
+                        scientific_name=tax[spp, "Scientific_Name"],
+                        common_name=tax[spp, "English_Name"])
+rownames(spp_table) <- spp
+spp_table <- droplevels(spp_table)
+
+#16. Get variable names for different models----
+#use OVEN as template
+sra_list <- sapply(sra_estimates[["OVEN"]], function(z) paste(z$names, collapse=" + "))
+
+#16. Get loglik values---
+sra_loglik <- sra_models
+sra_loglik[] <- -Inf
+for (i in .BAMCOEFS4$spp) { # species
+    for (j in 1:sra_nmod) { # models
+        if (sra_models[i,j] > 0)
+            sra_loglik[i,j] <- resDur[[i]][[j]]$loglik
+    }
+}
+
+#17. Get AIC values----
+sra_aic <- sra_aicc <- sra_bic <- sra_loglik
+sra_aic[] <- Inf
+sra_aicc[] <- Inf
+sra_bic[] <- Inf
+for (i in .BAMCOEFS4$spp) {
+    sra_aic[i,] <- -2*sra_loglik[i,] + 2*sra_df
+    sra_aicc[i,] <- sra_aic[i,] + (2*sra_df*(sra_df+1)) / (sra_n[i]-sra_df-1)
+    sra_bic[i,] <- -2*sra_loglik[i,] + log(sra_n[i])*sra_df
+}
+
+#18. Rank models----
+sra_aicrank <- t(apply(sra_aic, 1, rank))*sra_models
+sra_aicrank[sra_aicrank==0] <- NA
+
+sra_aiccrank <- t(apply(sra_aicc, 1, rank))*sra_models
+sra_aiccrank[sra_aiccrank==0] <- NA
+
+sra_bicrank <- t(apply(sra_bic, 1, rank))*sra_models
+sra_bicrank[sra_bicrank==0] <- NA
+
+sra_aicbest <- apply(sra_aicrank, 1, function(z) colnames(sra_models)[which.min(z)])
+sra_aiccbest <- apply(sra_aiccrank, 1, function(z) colnames(sra_models)[which.min(z)])
+sra_bicbest <- apply(sra_bicrank, 1, function(z) colnames(sra_models)[which.min(z)])
+
+#19. Set version----
+version <- "4phen"
+
+#20. Bundle----
+bamcoefs <- list(spp=spp,
+                 spp_table=spp_table,
+                 edr_list=.BAMCOEFS4$edr_list,
+                 sra_list=sra_list,
+                 edr_models=.BAMCOEFS4$edr_models,
+                 sra_models=sra_models,
+                 edr_n=.BAMCOEFS4$edr_n,
+                 sra_n=sra_n,
+                 edr_df=.BAMCOEFS4$edr_df,
+                 sra_df=sra_df,
+                 edr_loglik=.BAMCOEFS4$edr_loglik,
+                 sra_loglik=sra_loglik,
+                 edr_aic=.BAMCOEFS4$edr_aic,
+                 sra_aic=sra_aic,
+                 edr_aicc=.BAMCOEFS4$edr_aicc,
+                 sra_aicc=sra_aicc,
+                 edr_bic=.BAMCOEFS4$edr_bic,
+                 sra_bic=sra_bic,
+                 edr_aicrank=.BAMCOEFS4$edr_aicrank,
+                 sra_aicrank=sra_aicrank,
+                 edr_aiccrank=.BAMCOEFS4$edr_aiccrank,
+                 sra_aiccrank=sra_aiccrank,
+                 edr_bicrank=.BAMCOEFS4$edr_bicrank,
+                 sra_bicrank=sra_bicrank,
+                 edr_aicbest=.BAMCOEFS4$edr_aicbest,
+                 sra_aicbest=sra_aicbest,
+                 edr_aiccbest=.BAMCOEFS4$edr_aiccbest,
+                 sra_aiccbest=sra_aiccbest,
+                 edr_bicbest=.BAMCOEFS4$edr_bicbest,
+                 sra_bicbest=sra_bicbest,
+                 edr_estimates=.BAMCOEFS4$edr_estimates,
+                 sra_estimates=sra_estimates,
+                 version=version)
+.BAMCOEFS4phen <- list2env(bamcoefs)
+
+save(.BAMCOEFS4phen, file="results/BAMCOEFS_QPAD_v4_phenology.rda")
+
+#D. COMPARE####
+
+load("results/BAMCOEFS_QPAD_v4.rda")
+load("results/BAMCOEFS_QPAD_v4_phenology.rda")
+
+my.theme <- theme_classic() +
+    theme(text=element_text(size=12, family="Arial"),
+          axis.text.x=element_text(size=12),
+          axis.text.y=element_text(size=12),
+          axis.title.x=element_text(margin=margin(10,0,0,0)),
+          axis.title.y=element_text(margin=margin(0,10,0,0)),
+          axis.line.x=element_line(linetype=1),
+          axis.line.y=element_line(linetype=1),
+          legend.text=element_text(size=12),
+          legend.title=element_text(size=12),
+          plot.title=element_text(size=12, hjust = 0.5))
+
+#Recall list of models
+names4 <- data.frame(name = .BAMCOEFS4$sra_list,
+                    mod = names(.BAMCOEFS4$sra_list))
+namesphen <- data.frame(name = .BAMCOEFS4phen$sra_list,
+                     mod = names(.BAMCOEFS4phen$sra_list)) %>%
+    mutate(group = c("Intercept", "day", "tssr only", "day", "tssr only", rep("day", 4), rep("seedgrow", 6), rep("annual temp", 6), rep("mean temp", 6), rep("lat", 6), rep("lat:lon", 6), rep("15% evi", 6), rep("50% evi", 6)))
+
+#1. Best model----
+mod <- data.frame(mod4 = .BAMCOEFS4$sra_aicbest,
+                  modphen = .BAMCOEFS4phen$sra_aicbest,
+                  spp = .BAMCOEFS4$spp) %>%
+    mutate(same = ifelse(mod4==modphen, 1, 0)) %>%
+    left_join(namesphen %>%
+                  rename(mod4 = mod, name4 = name, group4 = group)) %>%
+    left_join(namesphen %>%
+                  rename(modphen = mod, namephen = name, groupphen = group))
+
+modn.mod <- mod %>%
+    group_by(mod4) %>%
+    summarize(n4=n()) %>%
+    rename(mod = mod4) %>%
+    full_join(mod %>%
+                  group_by(modphen) %>%
+                  summarize(nphen=n()) %>%
+                  rename(mod = modphen)) %>%
+    full_join(namesphen) %>%
+    mutate(mod = as.numeric(mod)) %>%
+    arrange(mod)
+
+modn.group <- mod %>%
+    group_by(group4) %>%
+    summarize(n4=n()) %>%
+    rename(group = group4) %>%
+    full_join(mod %>%
+                  group_by(groupphen) %>%
+                  summarize(nphen=n()) %>%
+                  rename(group = groupphen))
