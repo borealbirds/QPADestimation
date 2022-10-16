@@ -21,17 +21,18 @@ names(mods) <- 0:5
 modnames <- list(
     "0"="(Intercept)",
     "1"=c("(Intercept)", "tree"),
-    "2"=c("(Intercept)", "lcc2openwet"),
-    "3"=c("(Intercept)", "lcc4conif", "lcc4open", "lcc4wet"),
-    "4"=c("(Intercept)", "lcc2openwet", "tree"),
-    "5"=c("(Intercept)", "lcc4conif", "lcc4open", "lcc4wet", "tree"))
+    "2"=c("(Intercept)", "lcc2OpenWet"),
+    "3"=c("(Intercept)", "lcc4Conif", "lcc4Open", "lcc4Wet"),
+    "4"=c("(Intercept)", "lcc2OpenWet", "tree"),
+    "5"=c("(Intercept)", "lcc4Conif", "lcc4Open", "lcc4Wet", "tree"))
 
 #2. Load data----
 load("data/cleaned_data_2022-10-06.Rdata")
+#load("data/new_offset_data_package_2017-03-01.Rdata")
 
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out distance methods that aren't appropriate for removal modelling (only have 1 bin)
-design <- visit %>%
+distdesign <- visit %>%
     dplyr::select(distanceMethod) %>%
     unique() %>%
     dplyr::filter(!distanceMethod %in% c("UNKNOWN", "0m-INF", "0m-100m", "0m-400m", "0m-80m", "0m-50m", "0m-INF-ARU")) %>%
@@ -58,7 +59,7 @@ for(i in 1:nrow(spp)){
     # filter to observations with covariates
     bird.i <- bird %>%
         dplyr::filter(speciesCode==spp$speciesCode[i],
-                      distanceMethod %in% design$distanceMethod,
+                      distanceMethod %in% distdesign$distanceMethod,
                       distanceBand!="UNKNOWN") %>%
         group_by(id, distanceMethod, distanceBand) %>%
         summarize(abundance = sum(abundance)) %>%
@@ -79,14 +80,16 @@ for(i in 1:nrow(spp)){
             dplyr::filter(id %in% unique(bird.i$id),
                           !is.na(tree),
                           !is.na(lcc2),
-                          !is.na(lcc4)) %>%
+                          !is.na(lcc4),
+                          lcc2!="",
+                          lcc4!="") %>%
             arrange(id) %>%
             dplyr::select(id, distanceMethod, tree, lcc2, lcc4)
 
         #9. Create design matrix----
         d <- x %>%
             dplyr::select(distanceMethod) %>%
-            left_join(design, by="distanceMethod") %>%
+            left_join(distdesign, by="distanceMethod") %>%
             dplyr::select(-distanceMethod) %>%
             as.matrix()
 
@@ -97,7 +100,7 @@ for(i in 1:nrow(spp)){
             separate(distanceBand, into=c("start", "end"), sep="-", remove=FALSE) %>%
             mutate(end = as.numeric(str_sub(end, -100, -2))/100,
                    end = ifelse(is.na(end), Inf, end)) %>%
-            left_join(design %>%
+            left_join(distdesign %>%
                           pivot_longer(d01:d13, values_to="end", names_to="position"),
                       by=c("distanceMethod", "end")) %>%
             dplyr::select(id, position, abundance) %>%
@@ -119,7 +122,7 @@ for(i in 1:nrow(spp)){
         #Save a bunch of metadata like sample size and aic value
         mod.list <- list()
         for (j in 1:length(mods)) {
-            f <- as.formula(paste0("y | d ", paste(as.character(mods[[i]]), collapse=" ")))
+            f <- as.formula(paste0("y | d ", paste(as.character(mods[[j]]), collapse=" ")))
             mod <- try(cmulti(f, x, type="dis"))
             if (!inherits(mod, "try-error")) {
                 dista <- mod[c("coefficients","vcov","nobs","loglik")]
@@ -128,11 +131,11 @@ for(i in 1:nrow(spp)){
             } else {
                 dista <- mod
             }
-            mod.list[[names(modnames)[i]]] <- dista
+            mod.list[[names(modnames)[j]]] <- dista
         }
 
         #13. Save model results to species list---
-        percep[[i]] <- rbindlist(mod.list, fill=TRUE)
+        percep[[i]] <- mod.list
 
     }
 
@@ -140,5 +143,7 @@ for(i in 1:nrow(spp)){
 
 }
 
+names(percep) <- spp$speciesCode[1:10]
+
 #14. Save out results----
-save(percep, file="results/perceptability_results_2022-10-06.Rdata")
+save(percep, distdesign, file="results/perceptability_results_2022-10-06.Rdata")
