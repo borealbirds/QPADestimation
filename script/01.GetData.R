@@ -7,6 +7,9 @@
 library(tidyverse)
 library(wildRtrax)
 library(data.table)
+library(RODBC)
+
+#A. DOWNLOAD DATA FROM WILDTRAX####
 
 #1. Get list of projects from WildTrax----
 wt_auth()
@@ -19,8 +22,7 @@ projects <- data.frame(project = as.character(project.list$project),
                        project_id = as.numeric(project.list$project_id),
                        sensorId = as.character(project.list$sensorId),
                        tasks = as.numeric(project.list$tasks),
-                       status = as.character(project.list$status)) %>%
-    dplyr::filter(sensorId=="PC")
+                       status = as.character(project.list$status))
 
 #3. Loop through projects to download data----
 dat.list <- list()
@@ -40,3 +42,12 @@ raw <- rbindlist(dat.list, fill=TRUE)
 
 #5. Save date stamped data & project list----
 save(raw, projects, file=paste0("data/wildtrax_data_", Sys.Date(), ".Rdata"))
+load("data/wildtrax_data_2022-11-06.Rdata")
+
+#B. COMPARE TO V6 DATABASE####
+dta <- odbcConnectAccess2007("data/BAM-V6-USE.accdb")
+
+#C. PATCH DATA####
+
+
+#DONT FORGET TO TAKE OUT WEYER
