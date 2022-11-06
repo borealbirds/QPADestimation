@@ -124,20 +124,30 @@ est34 <- full_join(est3, est4) %>%
 
 ggplot(est34) +
     geom_abline(intercept = 0, slope = 1) +
-    geom_point(aes(x=sra3, y=sra4, fill=version), pch=21, alpha = 0.5, size=4) +
+#    geom_point(aes(x=sra3, y=sra4, fill=version), pch=21, alpha = 0.5, size=4) +
+    geom_text(aes(x=sra3, y=sra4, label=species)) +
     xlab("V3 availability estimate (phi)") +
     ylab("V4 availability estimate (phi)") +
     scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
     my.theme
 
-ggsave(filename="figures/V3V4_phi.jpeg", width =7, height=6)
+ggsave(filename="figures/V3V4_phi_species.jpeg", width =7, height=6)
 
 ggplot(est34) +
     geom_abline(intercept = 0, slope = 1) +
-    geom_point(aes(x=edr3, y=edr4, fill=version), pch=21, alpha = 0.5, size=4) +
+#    geom_point(aes(x=edr3, y=edr4, fill=version), pch=21, alpha = 0.5, size=4) +
+    geom_text(aes(x=edr3, y=edr4, label=species)) +
     xlab("V3 perceptability estimate (tau)") +
     ylab("V4 perceptability estimate (tau)") +
     scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
     my.theme
 
-ggsave(filename="figures/V3V4_tau.jpeg", width =7, height=6)
+ggsave(filename="figures/V3V4_tau_species.jpeg", width =7, height=6)
+
+#5. Projects----
+load("data/cleaned_data_2022-10-06.Rdata")
+load("data/new_offset_data_package_2017-03-01.Rdata")
+load("data/wildtrax_data_2022-10-06.Rdata")
+
+pcode <- visit %>%
+    separate(location, into=c("pcode", "cluster", "station"), remove=FALSE, sep=":")
