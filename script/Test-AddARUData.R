@@ -268,7 +268,7 @@ tmttn <- first %>%
     mutate(obs = ifelse(ntmtt < 20, "observer", observer))
 
 #Model 99% quantile with random effects for species and observer
-lm.tmtt <- lme4::lmer(val ~ 1 + (1|speciesCode) + (1|obs), data=tmttn)
+lm.tmtt <- lme4::lmer(val ~ nobs + (1|speciesCode) + (1|obs), data=tmttn)
 
 #Check variance explained by REs
 summary(lm.tmtt)
@@ -280,7 +280,18 @@ tmttpred <- data.frame(pred = predict(lm.tmtt)) %>%
 
 #Plot quantiles vs predictions
 ggplot(tmttpred) +
-    geom_hex(aes(x=val, y=predabun))
+    geom_jitter(aes(x=val, y=predabun, colour=log(nobs))) +
+    xlab("Raw quantile") +
+    ylab("Predicted value") +
+    geom_abline(aes(intercept=0, slope=1)) +
+    scale_colour_viridis_c()
+
+ggplot(tmttpred) +
+    geom_smooth(aes(x=nobs, y=val))
+
+ggplot(tmttpred) +
+    geom_jitter(aes(x=nobs, y=predabun)) +
+    geom_smooth(aes(x=nobs, y=predabun))
 
 #Replace TMTTs
 bird.aru <- first %>%
