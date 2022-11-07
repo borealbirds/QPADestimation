@@ -2,6 +2,7 @@
 # title: "QPAD estimation - get data"
 # author: "Elly Knight"
 # created: "July 24, 2022"
+# updated: "November 6, 2022"
 # ---
 
 library(tidyverse)
@@ -29,7 +30,14 @@ projects <- data.frame(project = as.character(project.list$project),
 dat.list <- list()
 for(i in 1:nrow(projects)){
 
-    dat.try <- try(wt_download_report(project_id = projects$project_id[i], sensor_id = "PC", cols_def = F, weather_cols = F))
+  if(projects$sensorId[i]=="ARU"){
+    dat.try <- try(wt_download_report(project_id = projects$project_id[i], sensor_id = projects$sensorId[i], weather_cols = F, report = "summary"))
+  }
+    
+  if(projects$sensorId[i]=="PC"){
+    dat.try <- try(wt_download_report(project_id = projects$project_id[i], sensor_id = projects$sensorId[i], weather_cols = F, report="report"))
+  }
+  
     if(class(dat.try)=="data.frame"){
         dat.list[[i]] <- dat.try
     }
@@ -39,15 +47,18 @@ for(i in 1:nrow(projects)){
 }
 
 #4. Collapse list----
-raw <- rbindlist(dat.list, fill=TRUE)
+raw <- rbindlist(dat.list, fill=TRUE) %>% 
+  mutate(project = ifelse(is.na(project), project_name, project),
+         speciesCode = ifelse(is.na(speciesCode), species_code, speciesCode)) %>% 
+  dplyr::select(-project_name)
 
 #5. Save date stamped data & project list----
-save(raw, projects, file=paste0("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/wildtrax_dat", Sys.Date(), ".Rdata"))
+save(raw, projects, file=paste0("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/wildtrax_raw_", Sys.Date(), ".Rdata"))
 
 #B. COMPARE TO V6 DATABASE####
 
 #1. Load wildtrax dataset----
-load("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/wildtrax_data_2022-11-06.Rdata")
+load("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/wildtrax_raw_2022-11-06.Rdata")
 
 #2. Connect to BAM v6 dataset----
 v6 <- odbcConnectAccess2007("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/DataStuff/Avian.Data/BAM-V6/BAM-V6-USE.accdb")
@@ -58,7 +69,11 @@ v6.projects <- data.frame(PCODE = unique(sqlFetch(v6, "location")$dataset_fk_V4)
   mutate(V6 = 1)
 
 #4. Get list of wildtrax projects----
+#remove ones that are not complete in wildtrax
+load("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/BAMpatch.Rdata")
+
 wt.projects <- data.frame(project = unique(raw$project)) %>% 
+  dplyr::filter(!project %in% patch_bind$project) %>% 
   mutate(WT=1)
 
 #5. Read in lookup table----
@@ -74,7 +89,7 @@ wtv6.projects <- wt.projects %>%
 missing.projects <- wtv6.projects %>% 
   dplyr::filter(V6==1 & is.na(WT))
 
-#C. PATCH DATA####
+#C. BAM V6 DATA####
 
 #1. Get data for missing projects----
 v6.loc <- sqlFetch(v6, "location") %>% 
@@ -121,18 +136,26 @@ patch.raw <- v6.raw %>%
   left_join(dismeth) %>% 
   left_join(durint) %>% 
   left_join(disint) %>% 
-  dplyr::select(-protocol_duration_id, -protocol_distance_numid, -duration_interval, -distance_band_numid)
+  dplyr::select(-protocol_duration_id, -protocol_distance_numid, -duration_interval, -distance_band_numid) %>% 
+  mutate(dataset = "BAM",
+         method = "PC",
+         tag_start_s = NA,
+         individual_appearance_order = NA,
+         ARUmethod = NA)
 
 #D. PUT DATASETS TOGETHER & TIDY####
 
 #1. Put together----
 raw.all <- raw %>% 
-  dplyr::select(-comments, -speciesCommonName, -scientificName) %>% 
   mutate(dataset = "WT",
-         date = ymd_hms(date)) %>% 
-  rename(buffer = bufferRadius.m.) %>% 
-  rbind(patch.raw %>% 
-          mutate(dataset = "BAM"))
+         date = ymd_hms(ifelse(is.na(date), recording_date, date))) %>% 
+  rename(buffer = bufferRadius.m.,
+         ARUmethod = method) %>% 
+  left_join(projects %>% 
+              dplyr::select(project, sensorId) %>% 
+              rename(method = sensorId)) %>% 
+  dplyr::select(colnames(patch.raw)) %>% 
+  rbind(patch.raw)
 
 #2. Remove datasets without permission----
 remove <- c("Weyerhaeuser Point Counts Westworth 1995",
@@ -144,4 +167,9 @@ remove <- c("Weyerhaeuser Point Counts Westworth 1995",
 use <- raw.all %>% 
   dplyr::filter(!project %in% remove)
 
-save(use, file=paste0("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_dat_2022-11-06.Rdata"))
+save(use, file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_dat_2022-11-06.Rdata")
+
+
+#date vs recording_date
+#project vs project_name
+#speciesCode vs species_code
