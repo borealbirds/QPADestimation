@@ -19,48 +19,49 @@ options(dplyr.summarise.inform = FALSE, scipen=9999)
 #tsg = days since start of seedgrowth from seedgrow layers
 
 mods <- list(
-    ~ 1,
-    ~ jday,
-    ~ tssr,
-    ~ jday + jday2,
-    ~ tssr + tssr2,
-    ~ jday + tssr,
-    ~ jday + jday2 + tssr,
-    ~ jday + tssr + tssr2,
-    ~ jday + jday2 + tssr + tssr2,
-    ~ tsg,
-    ~ tsg + tsg2,
-    ~ tsg + tssr,
-    ~ tsg + tsg2 + tssr,
-    ~ tsg + tssr + tssr2,
-    ~ tsg + tsg2 + tssr + tssr2)
+    ~ method,
+    ~ method + jday,
+    ~ method + tssr,
+    ~ method + jday + jday2,
+    ~ method + tssr + tssr2,
+    ~ method + jday + tssr,
+    ~ method + jday + jday2 + tssr,
+    ~ method + jday + tssr + tssr2,
+    ~ method + jday + jday2 + tssr + tssr2,
+    ~ method + tsg,
+    ~ method + tsg + tsg2,
+    ~ method + tsg + tssr,
+    ~ method + tsg + tsg2 + tssr,
+    ~ method + tsg + tssr + tssr2,
+    ~ method + tsg + tsg2 + tssr + tssr2)
 names(mods) <- 0:14
 modnames <- list(
-    "0"="(Intercept)",
-    "1"=c("(Intercept)", "jday"),
-    "2"=c("(Intercept)", "tssr"),
-    "3"=c("(Intercept)", "jday", "jday2"),
-    "4"=c("(Intercept)", "tssr", "tssr2"),
-    "5"=c("(Intercept)", "jday", "tssr"),
-    "6"=c("(Intercept)", "jday", "jday2", "tssr"),
-    "7"=c("(Intercept)", "jday", "tssr", "tssr2"),
-    "8"=c("(Intercept)", "jday", "jday2", "tssr", "tssr2"),
-    "9"=c("(Intercept)", "tsg"),
-    "10"=c("(Intercept)", "tsg", "tsg2"),
-    "11"=c("(Intercept)", "tsg", "tssr"),
-    "12"=c("(Intercept)", "tsg", "tsg2", "tssr"),
-    "13"=c("(Intercept)", "tsg", "tssr", "tssr2"),
-    "14"=c("(Intercept)", "tsg", "tsg2", "tssr", "tssr2"))
+    "0"=c("(Intercept)", "method"),
+    "1"=c("(Intercept)", "method", "jday"),
+    "2"=c("(Intercept)", "method", "tssr"),
+    "3"=c("(Intercept)", "method", "jday", "jday2"),
+    "4"=c("(Intercept)", "method", "tssr", "tssr2"),
+    "5"=c("(Intercept)", "method", "jday", "tssr"),
+    "6"=c("(Intercept)", "method", "jday", "jday2", "tssr"),
+    "7"=c("(Intercept)", "method", "jday", "tssr", "tssr2"),
+    "8"=c("(Intercept)", "method", "jday", "jday2", "tssr", "tssr2"),
+    "9"=c("(Intercept)", "method", "tsg"),
+    "10"=c("(Intercept)", "method", "tsg", "tsg2"),
+    "11"=c("(Intercept)", "method", "tsg", "tssr"),
+    "12"=c("(Intercept)", "method", "tsg", "tsg2", "tssr"),
+    "13"=c("(Intercept)", "method", "tsg", "tssr", "tssr2"),
+    "14"=c("(Intercept)", "method", "tsg", "tsg2", "tssr", "tssr2"))
 
 #2. Load data----
-load("data/cleaned_data_2022-10-06.Rdata")
+load("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_clean_2022-11-06.Rdata")
 
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out duration methods that aren't appropriate for removal modelling (only have 1 time bin)
 durdesign <- visit %>%
     dplyr::select(durationMethod) %>%
     unique() %>%
-    dplyr::filter(!durationMethod %in% c("UNKNOWN", "0-10min", "0-20min", "0-5min", "0-3min", "0-2min")) %>%
+    dplyr::filter(!durationMethod %in% c("UNKNOWN", "0-10min", "0-20min", "0-5min", "0-3min", "0-2min"),
+                  !is.na(durationMethod)) %>%
     mutate(dm = str_sub(durationMethod, -100, -4)) %>%
     separate(dm, into=c("t00", "t01", "t02", "t03", "t04", "t05", "t06", "t07", "t08", "t09", "t10"), remove=TRUE, sep="-") %>%
     dplyr::select(-t00) %>%
@@ -84,7 +85,7 @@ for(i in 1:nrow(spp)){
     bird.i <- bird %>%
         dplyr::filter(speciesCode==spp$speciesCode[i],
                       durationMethod %in% durdesign$durationMethod,
-                      durationInterval!="UNKNOWN") %>%
+                      !durationInterval %in% c("UNKNOWN", "before or after/incidental")) %>%
         group_by(id, durationMethod, durationInterval) %>%
         summarize(abundance = sum(abundance)) %>%
         ungroup()
@@ -106,7 +107,7 @@ for(i in 1:nrow(spp)){
                           !is.na(tsg),
                           !is.na(jday)) %>%
             arrange(id) %>%
-            dplyr::select(id, durationMethod, jday, jday2, tssr, tssr2, tsg, tsg2)
+            dplyr::select(id, durationMethod, method, jday, jday2, tssr, tssr2, tsg, tsg2)
 
         #9. Create design matrix----
         d <- x %>%

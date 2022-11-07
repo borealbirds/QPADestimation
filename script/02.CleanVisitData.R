@@ -2,7 +2,7 @@
 # title: "QPAD estimation - clean visit data"
 # author: "Elly Knight"
 # created: "July 24, 2022"
-# updated: "September 22, 2022"
+# updated: "November 6, 2022"
 # ---
 
 library(tidyverse) #basic data wrangling
@@ -12,31 +12,56 @@ library(sf) #spatial manipulation
 library(terra) #raster handling
 library(downloader) #download region file
 
-#Load previous dataset to look at it----
-#load into separate environment to avoid overwriting things
-# e <- new.env()
-# load("data/new_offset_data_package_2017-03-01.Rdata", envir = e)
-# #look at data structure
-# str(e$dat)
-
 #1. Load in new dataset----
-load("data/wildtrax_data_2022-10-06.Rdata")
+load("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_dat_2022-11-06.Rdata")
 
-#2. Subset to visits & filter----
+#2. Wrangle duration method----
+#Remove surveys with "none" method
+#Remove surveys that are not a factor of 60s
+#Remove tags that are after the indicated duration
+method <- use %>%
+  dplyr::filter(method=="ARU") %>% 
+  separate(ARUmethod, into=c("duration", "tagMethod"), sep=" ", remove=FALSE) %>%
+  mutate(minutes = as.numeric(str_sub(duration, -100, -2))/60) %>%
+  dplyr::filter(tagMethod!="None",
+                minutes %in% c(1:10),
+                tag_start_s <= minutes*60) %>%
+  mutate(durationMethod = case_when(minutes==1 ~ "0-0.5-1min",
+                                    minutes==2 ~ "0-1-2min",
+                                    minutes==3 ~ "0-1-2-3min",
+                                    minutes==4 ~ "0-1-2-3-4min",
+                                    minutes==5 ~ "0-1-2-3-4-5min",
+                                    minutes==6 ~ "0-1-2-3-4-5-6min",
+                                    minutes==7 ~ "0-1-2-3-4-5-6-7min",
+                                    minutes==8 ~ "0-1-2-3-4-5-6-7-8min",
+                                    minutes==9 ~ "0-1-2-3-4-5-6-7-8-9min",
+                                    minutes==10 ~ "0-1-2-3-4-5-6-7-8-9-10min")) %>% 
+  dplyr::select(colnames(use)) %>% 
+  rbind(use %>% 
+          dplyr::filter(method=="PC"))
+
+#3. Subset to visits & filter----
 #Remove surveys with no location
 #Standardize sig figs for location to remove duplicates
-#Remove ARU surveys (have recording_date instead of date)
-dat <- raw %>%
-    dplyr::select(organization, project, location, latitude, longitude, observer, date, distanceMethod, durationMethod) %>%
-    unique() %>%
+#Remove surveys with location buffer > 1km
+#Remove outliers for day of year (use 99% quantile)
+dat <- method %>%
+    dplyr::select(dataset, organization, method, project, location, buffer, latitude, longitude, observer, date, distanceMethod, durationMethod) %>%
     mutate(latitude = round(latitude, 5),
-           longitude = round(longitude, 5)) %>%
-    dplyr::filter(!is.na(latitude),
-                  latitude > 0,
-                  !is.na(date)) %>%
-        unique()
+           longitude = round(longitude, 5),
+           buffer = ifelse(is.na(buffer), 0, buffer),
+           julian = yday(date)) %>% 
+    unique() %>% 
+  dplyr::filter(!is.na(latitude),
+                latitude > 0, 
+                longitude < 0,
+                !is.na(date),
+                year(date) > 1900,
+                buffer <= 1000,
+                julian > quantile(julian, 0.005),
+                julian < quantile(julian, 0.995))
 
-#3. Wrangle temporal variables----
+#4. Wrangle temporal variables----
 temporal <- dat %>%
     mutate(datetime = ymd_hms(date),
            year = year(datetime),
@@ -44,7 +69,12 @@ temporal <- dat %>%
            start_time = hour(datetime) + minute(datetime)/60) %>%
     dplyr::filter(year > 1900)
 
-#4. Get sunrise time----
+#check BAM dataset distribution against WT for time zone issues
+ggplot(temporal) +
+  geom_histogram(aes(x=start_time, fill=dataset))
+#looks OK
+
+#5. Get sunrise time----
 sun <- temporal %>%
     mutate(date = ymd(str_sub(datetime, 1, 10))) %>%
     rename(lat = latitude, lon = longitude)
@@ -52,15 +82,15 @@ sun <- temporal %>%
 sun$sunrise <- getSunlightTimes(data=sun, keep="sunrise")$sunrise
 sun$hssr <- as.numeric(difftime(sun$datetime, sun$sunrise), units="hours")
 
-#5. Get region----
+#6. Get region----
 
-#5a. Download data
+#6a. Download data
 # temp <- tempfile()
 # download("https://birdscanada.org/download/gislab/bcr_terrestrial_shape.zip", temp)
 # unzip(zipfile=temp, exdir="gis")
 # unlink(temp)
 
-#5b.Read in & wrangle shapefile
+#6b.Read in & wrangle shapefile
 bcrshp <- read_sf("gis/BCR_Terrestrial/BCR_Terrestrial_master.shp") %>%
     dplyr::select(BCR, PROVINCE_S, COUNTRY) %>%
     rename(bcr = BCR, province = PROVINCE_S, country=COUNTRY) %>%
@@ -71,7 +101,7 @@ bcrshp <- read_sf("gis/BCR_Terrestrial/BCR_Terrestrial_master.shp") %>%
     st_make_valid() %>%
     vect()
 
-#5c. Create rasters (much faster than from polygon)
+#6c. Create rasters (much faster than from polygon)
 r <- rast(ext(bcrshp), resolution=1000)
 
 bcr <- rasterize(x=bcrshp, y=r, field="bcr")
@@ -80,33 +110,34 @@ country <- rasterize(x=bcrshp, y=r, field="countryid")
 
 regionstack <- rast(list(bcr, province, country))
 
-#5d. Extract values
+#6d. Extract values
 regionids <- sun %>%
     st_as_sf(coords=c("lon", "lat"), crs=4326) %>%
     st_transform(crs=3857) %>%
     vect() %>%
     terra::extract(x=regionstack)
 
-#5e. Create lookup table to join back ids
+#6e. Create lookup table to join back ids
 bcrtbl <- st_as_sf(bcrshp) %>%
     as.data.frame() %>%
     dplyr::select(-geometry) %>%
     unique()
 
-#5f. Put together
+#6f. Put together
 region <- sun %>%
     cbind(regionids) %>%
     dplyr::select(-ID) %>%
     left_join(bcrtbl)
 
-#6. Get covariates----
+#7. Get covariates----
 
-#6a. Read in rasters----
+#7a. Read in rasters----
+#From https://github.com/borealbirds/qpad-offsets/tree/main/data
 lcc <- rast("gis/lcc.tif")
 sg <- rast("gis/seedgrow.tif")
 tree <- rast("gis/tree.tif")
 
-#6b. Get values----
+#7b. Get values----
 covsf <- region %>%
     st_as_sf(coords=c("lon", "lat"), crs=4326) %>%
     st_transform(crs=crs(lcc)) %>%
@@ -119,7 +150,7 @@ sgval <- terra::extract(covsf, x=sg) %>%
 treeval <- terra::extract(covsf, x=tree) %>%
     dplyr::select(-ID)
 
-#6c.Create lookup table for lcc
+#7c.Create lookup table for lcc
 # 0: No data (NA/NA)
 # 1: Temperate or sub-polar needleleaf forest (Conif/Forest)
 # 2: Sub-polar taiga needleleaf forest (Conif/Forest)
@@ -141,14 +172,14 @@ lcctbl <- data.frame(lcc=c(0:19),
     mutate(lcc2 = case_when(lcc4 %in% c("Conif", "DecidMixed") ~ "Forest",
                             lcc4 %in% c("Open", "Wet") ~ "OpenWet",
                             !is.na(lcc4) ~ lcc4))
-#6d. Put together----
+#7d. Put together----
 covariates <- region %>%
     cbind(lccval, sgval, treeval) %>%
     left_join(lcctbl) %>%
     mutate(tree = tree/100,
            tree = ifelse(tree > 1, 0, tree))
 
-#7. Tidy, create primary key, standardize & create polynomial variables----
+#8. Tidy, create primary key, standardize & create polynomial variables----
 visit <- covariates %>%
     mutate(tsg = (as.numeric(date)-seedgrow)/365,
            jday = julian/365,
@@ -157,8 +188,8 @@ visit <- covariates %>%
            jday2 = jday^2,
            tssr2 = tssr^2,
            tsg2 = tsg^2) %>%
-    dplyr::select(organization, project,  observer, distanceMethod, durationMethod, location, lon, lat, datetime, year, julian, jday, jday2, hssr, tssr, tssr2, seedgrow, tsg, tsg2, bcr, province, country, tree, lcc2, lcc4) %>%
+    dplyr::select(dataset, organization, project, method, observer, distanceMethod, durationMethod, location, lon, lat, datetime, year, julian, jday, jday2, hssr, tssr, tssr2, seedgrow, tsg, tsg2, bcr, province, country, tree, lcc2, lcc4) %>%
     mutate(id = paste(location, observer, datetime))
 
-#8. Save----
-save(visit, file="data/visit_data_2022-10-06.Rdata")
+#9. Save----
+save(visit, file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_visit_2022-11-06.Rdata")
