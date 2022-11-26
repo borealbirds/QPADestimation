@@ -11,49 +11,86 @@ library(data.table) #collapse list to dataframe
 
 options(dplyr.summarise.inform = FALSE, scipen=9999)
 
-#TO DO: FIX MODEL COLUMN####
+root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
 
 #1. Create list of models----
 #jday = day of year as a decimal between 0 and 1
 #tssr = time since sunrise as a decimal between 0 and 1
 #tsg = days since start of seedgrowth from seedgrow layers
 
-mods <- list(
-    ~ method,
-    ~ method + jday,
-    ~ method + tssr,
-    ~ method + jday + jday2,
-    ~ method + tssr + tssr2,
-    ~ method + jday + tssr,
-    ~ method + jday + jday2 + tssr,
-    ~ method + jday + tssr + tssr2,
-    ~ method + jday + jday2 + tssr + tssr2,
-    ~ method + tsg,
-    ~ method + tsg + tsg2,
-    ~ method + tsg + tssr,
-    ~ method + tsg + tsg2 + tssr,
-    ~ method + tsg + tssr + tssr2,
-    ~ method + tsg + tsg2 + tssr + tssr2)
-names(mods) <- 0:14
-modnames <- list(
-    "0"=c("(Intercept)", "method"),
-    "1"=c("(Intercept)", "method", "jday"),
-    "2"=c("(Intercept)", "method", "tssr"),
-    "3"=c("(Intercept)", "method", "jday", "jday2"),
-    "4"=c("(Intercept)", "method", "tssr", "tssr2"),
-    "5"=c("(Intercept)", "method", "jday", "tssr"),
-    "6"=c("(Intercept)", "method", "jday", "jday2", "tssr"),
-    "7"=c("(Intercept)", "method", "jday", "tssr", "tssr2"),
-    "8"=c("(Intercept)", "method", "jday", "jday2", "tssr", "tssr2"),
-    "9"=c("(Intercept)", "method", "tsg"),
-    "10"=c("(Intercept)", "method", "tsg", "tsg2"),
-    "11"=c("(Intercept)", "method", "tsg", "tssr"),
-    "12"=c("(Intercept)", "method", "tsg", "tsg2", "tssr"),
-    "13"=c("(Intercept)", "method", "tsg", "tssr", "tssr2"),
-    "14"=c("(Intercept)", "method", "tsg", "tsg2", "tssr", "tssr2"))
+#1a. Lists for species that have data for both sensors----
+mods.2 <- list(
+    ~ sensor,
+    ~ sensor + jday,
+    ~ sensor + tssr,
+    ~ sensor + poly(jday, 2),
+    ~ sensor + poly(tssr, 2),
+    ~ sensor + jday + tssr,
+    ~ sensor + poly(jday, 2) + tssr,
+    ~ sensor + jday + poly(tssr, 2),
+    ~ sensor + poly(jday, 2) + poly(tssr, 2),
+    ~ sensor + tsg,
+    ~ sensor + poly(tsg, 2),
+    ~ sensor + tsg + tssr,
+    ~ sensor + poly(tsg, 2) + tssr,
+    ~ sensor + tsg + poly(tssr, 2),
+    ~ sensor + poly(tsg, 2) + poly(tssr, 2))
+names(mods.2) <- 0:14
+modnames.2 <- list(
+    "0"=c("(Intercept)", "sensor"),
+    "1"=c("(Intercept)", "sensor", "jday"),
+    "2"=c("(Intercept)", "sensor", "tssr"),
+    "3"=c("(Intercept)", "sensor", "jday", "jday2"),
+    "4"=c("(Intercept)", "sensor", "tssr", "tssr2"),
+    "5"=c("(Intercept)", "sensor", "jday", "tssr"),
+    "6"=c("(Intercept)", "sensor", "jday", "jday2", "tssr"),
+    "7"=c("(Intercept)", "sensor", "jday", "tssr", "tssr2"),
+    "8"=c("(Intercept)", "sensor", "jday", "jday2", "tssr", "tssr2"),
+    "9"=c("(Intercept)", "sensor", "tsg"),
+    "10"=c("(Intercept)", "sensor", "tsg", "tsg2"),
+    "11"=c("(Intercept)", "sensor", "tsg", "tssr"),
+    "12"=c("(Intercept)", "sensor", "tsg", "tsg2", "tssr"),
+    "13"=c("(Intercept)", "sensor", "tsg", "tssr", "tssr2"),
+    "14"=c("(Intercept)", "sensor", "tsg", "tsg2", "tssr", "tssr2"))
+
+#1b. Lists for species that only have data for one sensor----
+mods.1 <- list(
+  ~ 1,
+  ~ jday,
+  ~ tssr,
+  ~ poly(jday, 2),
+  ~ poly(tssr, 2),
+  ~ jday + tssr,
+  ~ poly(jday, 2) + tssr,
+  ~ jday + poly(tssr, 2),
+  ~ poly(jday, 2) + poly(tssr, 2),
+  ~ tsg,
+  ~ poly(tsg, 2),
+  ~ tsg + tssr,
+  ~ poly(tsg, 2) + tssr,
+  ~ tsg + poly(tssr, 2),
+  ~ poly(tsg, 2) + poly(tssr, 2))
+names(mods.1) <- 0:14
+modnames.1 <- list(
+  "0"=c("(Intercept)"),
+  "1"=c("(Intercept)", "jday"),
+  "2"=c("(Intercept)", "tssr"),
+  "3"=c("(Intercept)", "jday", "jday2"),
+  "4"=c("(Intercept)", "tssr", "tssr2"),
+  "5"=c("(Intercept)", "jday", "tssr"),
+  "6"=c("(Intercept)", "jday", "jday2", "tssr"),
+  "7"=c("(Intercept)", "jday", "tssr", "tssr2"),
+  "8"=c("(Intercept)", "jday", "jday2", "tssr", "tssr2"),
+  "9"=c("(Intercept)", "tsg"),
+  "10"=c("(Intercept)", "tsg", "tsg2"),
+  "11"=c("(Intercept)", "tsg", "tssr"),
+  "12"=c("(Intercept)", "tsg", "tsg2", "tssr"),
+  "13"=c("(Intercept)", "tsg", "tssr", "tssr2"),
+  "14"=c("(Intercept)", "tsg", "tsg2", "tssr", "tssr2"))
+
 
 #2. Load data----
-load("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_clean_2022-11-06.Rdata")
+load(file.path(root, "Data/qpadv4_clean.Rdata"))
 
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out duration methods that aren't appropriate for removal modelling (only have 1 time bin)
@@ -71,9 +108,9 @@ durdesign <- visit %>%
 spp <- species %>%
     dplyr::filter(Singing_birds==TRUE) %>%
     left_join(bird %>%
-                  dplyr::select(speciesCode) %>%
+                  dplyr::select(species) %>%
                   unique()) %>%
-    arrange(speciesCode)
+    arrange(species)
 
 #5. Set up loop for species----
 avail <- list()
@@ -81,11 +118,20 @@ for(i in 1:nrow(spp)){
 
     #6. Filter abundance data for species---
     # filter out observations with unknown duration method or interval
+    # filter out observations with interval > method
     # filter to observations with covariates
     bird.i <- bird %>%
-        dplyr::filter(speciesCode==spp$speciesCode[i],
+        dplyr::filter(species==spp$species[i],
                       durationMethod %in% durdesign$durationMethod,
-                      !durationInterval %in% c("UNKNOWN", "before or after/incidental")) %>%
+                      !durationInterval %in% c("UNKNOWN", "before or after/incidental")) %>% 
+      left_join(durdesign %>% 
+                  rowwise() %>% 
+                  mutate(m = pmax(t01, t02, t03, t04, t05, t06, t07, t08, t09, t10, na.rm=TRUE)) %>% 
+                  data.frame(),
+                by="durationMethod") %>% 
+      mutate(durationMinutes = str_sub(durationInterval, -100, -4)) %>% 
+      separate(durationMinutes, into=c("durmin", "durmax"), sep="-", remove=FALSE) %>% 
+      dplyr::filter(as.numeric(durmax) <= m) %>%
         group_by(id, durationMethod, durationInterval) %>%
         summarize(abundance = sum(abundance)) %>%
         ungroup()
@@ -105,9 +151,10 @@ for(i in 1:nrow(spp)){
             dplyr::filter(id %in% unique(bird.i$id),
                           !is.na(tssr),
                           !is.na(tsg),
-                          !is.na(jday)) %>%
+                          !is.na(jday),
+                          durationMethod %in% durdesign$durationMethod) %>%
             arrange(id) %>%
-            dplyr::select(id, durationMethod, method, jday, jday2, tssr, tssr2, tsg, tsg2)
+            dplyr::select(id, durationMethod, sensor, jday, tssr, tsg)
 
         #9. Create design matrix----
         d <- x %>%
@@ -125,10 +172,10 @@ for(i in 1:nrow(spp)){
                    end = as.numeric(str_sub(end, -100, -4))) %>%
             left_join(durdesign %>%
                           pivot_longer(t01:t10, values_to="end", names_to="position"),
-                      by=c("durationMethod", "end")) %>%
+                      by=c("durationMethod", "end")) %>% 
             dplyr::select(id, position, abundance) %>%
-            arrange(position) %>%
-            rbind(data.frame(id="dummy", position=colnames(d), abundance=NA)) %>%
+            arrange(position)  %>% 
+            rbind(data.frame(id="dummy", position=colnames(d), abundance=NA)) %>% 
             pivot_wider(id_cols=id, names_from=position, values_from=abundance, values_fill=0) %>%
             dplyr::filter(id!="dummy") %>%
             arrange(id) %>%
@@ -140,8 +187,18 @@ for(i in 1:nrow(spp)){
             indices <- which(is.na(d[j,]))
             y[j, indices] <- NA
         }
+        
+        #12. Determine model set based on # of sensors in data----
+        if(length(unique(x$sensor))> 1){
+          mods <- mods.2
+          modnames <- modnames.2
+        }
+        if(length(unique(x$sensor))==1){
+          mods <- mods.1
+          modnames <- modnames.1
+        }
 
-        #12. Fit models----
+        #13. Fit models----
         #Save a bunch of metadata like sample size and aic value
         mod.list <- list()
         for (j in 1:length(mods)) {
@@ -157,7 +214,7 @@ for(i in 1:nrow(spp)){
             mod.list[[names(modnames)[j]]] <- rmvl
         }
 
-        #13. Save model results to species list---
+        #14. Save model results to species list---
         avail[[i]] <- mod.list
 
     }
@@ -166,7 +223,7 @@ for(i in 1:nrow(spp)){
 
 }
 
-names(avail) <- spp$speciesCode
+names(avail) <- spp$species
 
-#14. Save out results----
-save(durdesign, avail, file="results/availability_results_2022-10-06.Rdata")
+#15. Save out results----
+save(durdesign, avail, file=file.path(root, "Results/availability.Rdata"))
