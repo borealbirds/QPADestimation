@@ -5,6 +5,10 @@
 # updated: "November 6, 2022"
 # ---
 
+#PREAMBLE############################
+
+#1. Load packages----
+
 library(tidyverse) #basic data wrangling
 library(lubridate) #date manipulation
 library(suncalc) #sunrise time retrieval
@@ -12,20 +16,22 @@ library(sf) #spatial manipulation
 library(terra) #raster handling
 library(downloader) #download region file
 
+#2. Set root path for data on google drive----
+root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/"
+
 #1. Load in new dataset----
-load("G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_dat_2022-11-06.Rdata")
+load(file.path(root, "/qpadv4_raw.Rdata"))
 
 #2. Wrangle duration method----
 #Remove surveys with "none" method
 #Remove surveys that are not a factor of 60s
 #Remove tags that are after the indicated duration
 method <- use %>%
-  dplyr::filter(method=="ARU") %>% 
-  separate(ARUmethod, into=c("duration", "tagMethod"), sep=" ", remove=FALSE) %>%
-  mutate(minutes = as.numeric(str_sub(duration, -100, -2))/60) %>%
-  dplyr::filter(tagMethod!="None",
-                minutes %in% c(1:10),
-                tag_start_s <= minutes*60) %>%
+  dplyr::filter(sensor=="ARU") %>% 
+  separate(ARUMethod, into=c("duration", "tagMethod"), sep=" ", remove=FALSE) %>%
+  mutate(minutes = as.numeric(str_sub(duration, -100, -2))/60) %>% 
+  dplyr::filter(minutes %in% c(1:10),
+                tagStart <= minutes*60) %>%
   mutate(durationMethod = case_when(minutes==1 ~ "0-0.5-1min",
                                     minutes==2 ~ "0-1-2min",
                                     minutes==3 ~ "0-1-2-3min",
@@ -38,26 +44,27 @@ method <- use %>%
                                     minutes==10 ~ "0-1-2-3-4-5-6-7-8-9-10min")) %>% 
   dplyr::select(colnames(use)) %>% 
   rbind(use %>% 
-          dplyr::filter(method=="PC"))
+          dplyr::filter(sensor=="PC"))
 
 #3. Subset to visits & filter----
 #Remove surveys with no location
 #Standardize sig figs for location to remove duplicates
-#Remove surveys with location buffer > 1km
 #Remove outliers for day of year (use 99% quantile)
+#Take out BBS because isn't useful for removal or distance sampling
 dat <- method %>%
-    dplyr::select(dataset, organization, method, project, location, buffer, latitude, longitude, observer, date, distanceMethod, durationMethod) %>%
-    mutate(latitude = round(latitude, 5),
-           longitude = round(longitude, 5),
+  dplyr::filter(!is.na(date),
+                project!="BAM-BBS") %>% 
+    dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod) %>%
+    mutate(lat = round(lat, 5),
+           lon = round(lon, 5),
            buffer = ifelse(is.na(buffer), 0, buffer),
            julian = yday(date)) %>% 
     unique() %>% 
-  dplyr::filter(!is.na(latitude),
-                latitude > 0, 
-                longitude < 0,
+  dplyr::filter(!is.na(lat),
+                lat > 0, 
+                lon < 0,
                 !is.na(date),
                 year(date) > 1900,
-                buffer <= 1000,
                 julian > quantile(julian, 0.005),
                 julian < quantile(julian, 0.995))
 
@@ -71,13 +78,13 @@ temporal <- dat %>%
 
 #check BAM dataset distribution against WT for time zone issues
 ggplot(temporal) +
-  geom_histogram(aes(x=start_time, fill=dataset))
+  geom_histogram(aes(x=start_time, fill=source))
 #looks OK
 
 #5. Get sunrise time----
 sun <- temporal %>%
     mutate(date = ymd(str_sub(datetime, 1, 10))) %>%
-    rename(lat = latitude, lon = longitude)
+    rename(lat = lat, lon = lon)
 
 sun$sunrise <- getSunlightTimes(data=sun, keep="sunrise")$sunrise
 sun$hssr <- as.numeric(difftime(sun$datetime, sun$sunrise), units="hours")
@@ -85,10 +92,10 @@ sun$hssr <- as.numeric(difftime(sun$datetime, sun$sunrise), units="hours")
 #6. Get region----
 
 #6a. Download data
-# temp <- tempfile()
-# download("https://birdscanada.org/download/gislab/bcr_terrestrial_shape.zip", temp)
-# unzip(zipfile=temp, exdir="gis")
-# unlink(temp)
+temp <- tempfile()
+download("https://birdscanada.org/download/gislab/bcr_terrestrial_shape.zip", temp)
+unzip(zipfile=temp, exdir=root)
+unlink(temp)
 
 #6b.Read in & wrangle shapefile
 bcrshp <- read_sf("gis/BCR_Terrestrial/BCR_Terrestrial_master.shp") %>%
@@ -131,13 +138,17 @@ region <- sun %>%
 
 #7. Get covariates----
 
-#7a. Read in rasters----
-#From https://github.com/borealbirds/qpad-offsets/tree/main/data
+#7a. Download data
+download("https://github.com/borealbirds/qpad-offsets/tree/main/data/lcc.tif", destfile=file.path(root, "lcc.tif"))
+download("https://github.com/borealbirds/qpad-offsets/tree/main/data/seedgrow.tif", destfile=file.path(root, "seedgrow.tif"))
+download("https://github.com/borealbirds/qpad-offsets/tree/main/data/tree.tif", destfile=file.path(root, "tree.tif"))
+
+#7b. Read in rasters----
 lcc <- rast("gis/lcc.tif")
 sg <- rast("gis/seedgrow.tif")
 tree <- rast("gis/tree.tif")
 
-#7b. Get values----
+#7c. Get values----
 covsf <- region %>%
     st_as_sf(coords=c("lon", "lat"), crs=4326) %>%
     st_transform(crs=crs(lcc)) %>%
@@ -179,17 +190,19 @@ covariates <- region %>%
     mutate(tree = tree/100,
            tree = ifelse(tree > 1, 0, tree))
 
-#8. Tidy, create primary key, standardize & create polynomial variables----
+#8. Tidy, create primary key, standardize----
+#select processing method with higher resolution for recordings that are processed twice
 visit <- covariates %>%
     mutate(tsg = (as.numeric(date)-seedgrow)/365,
            jday = julian/365,
            tssr = hssr/24,
            tsg = tsg/365,
-           jday2 = jday^2,
-           tssr2 = tssr^2,
-           tsg2 = tsg^2) %>%
-    dplyr::select(dataset, organization, project, method, observer, distanceMethod, durationMethod, location, lon, lat, datetime, year, julian, jday, jday2, hssr, tssr, tssr2, seedgrow, tsg, tsg2, bcr, province, country, tree, lcc2, lcc4) %>%
-    mutate(id = paste(location, observer, datetime))
+           methodlength = nchar(durationMethod)) %>%
+    group_by(id) %>% 
+    dplyr::filter(methodlength == max(methodlength)) %>% 
+    sample_n(1) %>% 
+    ungroup() %>% 
+    dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, julian, jday, hssr, tssr, seedgrow, tsg, bcr, province, country, tree, lcc2, lcc4)
 
 #9. Save----
-save(visit, file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_visit_2022-11-06.Rdata")
+save(visit, file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_visit.Rdata")
