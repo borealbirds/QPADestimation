@@ -9,6 +9,8 @@ library(tidyverse) #basic data wrangling
 library(detect) #removal models
 library(data.table) #collapse list to dataframe
 
+#TO DO: REMOVE BUFFERED LOCATIONS####
+
 #1. Create list of models----
 mods <- list(
     ~ 1,
