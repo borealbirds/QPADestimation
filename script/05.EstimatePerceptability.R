@@ -9,7 +9,7 @@ library(tidyverse) #basic data wrangling
 library(detect) #removal models
 library(data.table) #collapse list to dataframe
 
-#TO DO: REMOVE BUFFERED LOCATIONS####
+root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
 
 #1. Create list of models----
 mods <- list(
@@ -29,11 +29,11 @@ modnames <- list(
     "5"=c("(Intercept)", "lcc4Conif", "lcc4Open", "lcc4Wet", "tree"))
 
 #2. Load data----
-load("data/cleaned_data_2022-10-06.Rdata")
-#load("data/new_offset_data_package_2017-03-01.Rdata")
+load(file.path(root, "Data/qpadv4_clean.Rdata"))
 
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out distance methods that aren't appropriate for removal modelling (only have 1 bin)
+#filter out locations buffered by more than 1 km
 distdesign <- visit %>%
     dplyr::select(distanceMethod) %>%
     unique() %>%
@@ -48,9 +48,9 @@ distdesign <- visit %>%
 spp <- species %>%
     dplyr::filter(Singing_birds==TRUE) %>%
     left_join(bird %>%
-                  dplyr::select(speciesCode) %>%
+                  dplyr::select(species) %>%
                   unique()) %>%
-    arrange(speciesCode)
+    arrange(species)
 
 #5. Set up loop for species----
 percep <- list()
@@ -60,7 +60,7 @@ for(i in 1:nrow(spp)){
     # filter out observations with unknown duration method or interval
     # filter to observations with covariates
     bird.i <- bird %>%
-        dplyr::filter(speciesCode==spp$speciesCode[i],
+        dplyr::filter(species==spp$species[i],
                       distanceMethod %in% distdesign$distanceMethod,
                       distanceBand!="UNKNOWN") %>%
         group_by(id, distanceMethod, distanceBand) %>%
@@ -84,7 +84,8 @@ for(i in 1:nrow(spp)){
                           !is.na(lcc2),
                           !is.na(lcc4),
                           lcc2!="",
-                          lcc4!="") %>%
+                          lcc4!="",
+                          buffer < 1000) %>% 
             arrange(id) %>%
             dplyr::select(id, distanceMethod, tree, lcc2, lcc4)
 
@@ -138,14 +139,14 @@ for(i in 1:nrow(spp)){
 
         #13. Save model results to species list---
         percep[[i]] <- mod.list
-
+        
     }
 
     print(paste0("Finished modelling species ", spp$English_Name[i], ": ", i, " of ", nrow(spp), " species"))
 
 }
 
-names(percep) <- spp$speciesCode[1:10]
+names(percep) <- spp$species
 
 #14. Save out results----
-save(percep, distdesign, file="results/perceptability_results_2022-10-06.Rdata")
+save(percep, distdesign, file=file.path(root, "Results/Perceptability.Rdata"))
