@@ -7,6 +7,8 @@
 library(tidyverse)
 library(QPAD)
 
+root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
+
 options(scipen=9999)
 
 my.theme <- theme_classic() +
@@ -23,7 +25,7 @@ my.theme <- theme_classic() +
 
 #1. Load results----
 load_BAM_QPAD(3)
-load("results/BAMCOEFS_QPAD_v4.rda")
+load(file.path(root, "Results/BAMCOEFS_QPAD_v4.rda"))
 
 #2. Number of species----
 spp3 <- getBAMspecieslist()
@@ -71,17 +73,15 @@ ggplot(n34) +
     scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
     my.theme
 
-ggsave(filename="figures/V3V4_samplesize_log.jpeg", width =7, height=6)
+#ggsave(filename="figures/V3V4_samplesize_log.jpeg", width =7, height=6)
 
 ggplot(n34) +
     geom_abline(intercept = 0, slope = 1) +
-    geom_point(aes(x=log(sra.n3), y=log(sra.n4), fill=version), pch=21, alpha = 0.5, size=4) +
-    xlab("log(V3 sample size)") +
-    ylab("log(V4 sample size)") +
+    geom_point(aes(x=edr.n3, y=edr.n4, fill=version), pch=21, alpha = 0.5, size=4) +
     scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
     my.theme
 
-ggsave(filename="figures/V3V4_samplesize_log.jpeg", width =7, height=6)
+#ggsave(filename="figures/V3V4_samplesize_log.jpeg", width =7, height=6)
 
 ggplot(n34) +
     geom_abline(intercept = 0, slope = 1) +
@@ -90,7 +90,7 @@ ggplot(n34) +
     ylab("log(V4 sample size)") +
     my.theme
 
-ggsave(filename="figures/V3V4_samplesize_species.jpeg", width =7, height=6)
+#ggsave(filename="figures/V3V4_samplesize_species.jpeg", width =7, height=6)
 
 #4. Null estimates----
 est3 <-data.frame()
@@ -104,19 +104,21 @@ rownames(est3) <- NULL
 
 est4 <-data.frame()
 for(i in 1:length(spp4)){
-    sra4 <- exp(.BAMCOEFS$sra_estimates[[i]]$`0`$coefficients)
-    edr4 <- exp(.BAMCOEFS$edr_estimates[[i]]$`0`$coefficients)
+  
+    sra4 <- exp(.BAMCOEFS4$sra_estimates[[i]]$`0`$coefficients[1])
+    sra4.aru <- exp(sum(.BAMCOEFS4$sra_estimates[[i]]$`0`$coefficients))
+    edr4 <- exp(.BAMCOEFS4$edr_estimates[[i]]$`0`$coefficients)
     est4 <- rbind(est4,
-                  data.frame(sra4=sra4, edr4=edr4, species=spp4[i]))
+                  data.frame(sra4=sra4, sra4.aru=sra4.aru, edr4=edr4, species=spp4[i]))
 }
 rownames(est4) <- NULL
-
 
 est34 <- full_join(est3, est4) %>%
     mutate(edr3 = ifelse(is.na(edr3), 0, edr3),
            sra3 = ifelse(is.na(sra3), 0, sra3),
            edr4 = ifelse(is.na(edr4), 0, edr4),
-           sra4 = ifelse(is.na(sra4), 0, sra4)) %>%
+           sra4 = ifelse(is.na(sra4), 0, sra4),
+           sra4.aru = ifelse(is.na(sra4.aru), 0, sra4.aru)) %>%
     mutate(version = case_when(edr3==0 ~ "V4",
                                edr4==0 ~ "V3",
                                !is.na(edr4) ~ "Both")) %>%
@@ -124,25 +126,40 @@ est34 <- full_join(est3, est4) %>%
 
 ggplot(est34) +
     geom_abline(intercept = 0, slope = 1) +
-#    geom_point(aes(x=sra3, y=sra4, fill=version), pch=21, alpha = 0.5, size=4) +
-    geom_text(aes(x=sra3, y=sra4, label=species)) +
+    geom_point(aes(x=sra3, y=sra4, fill=version), pch=21, alpha = 0.5, size=4) +
+#    geom_text(aes(x=sra3, y=sra4, label=species)) +
     xlab("V3 availability estimate (phi)") +
     ylab("V4 availability estimate (phi)") +
     scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
     my.theme
 
-ggsave(filename="figures/V3V4_phi_species.jpeg", width =7, height=6)
+#ggsave(filename="figures/V3V4_phi_species.jpeg", width =7, height=6)
 
 ggplot(est34) +
     geom_abline(intercept = 0, slope = 1) +
-#    geom_point(aes(x=edr3, y=edr4, fill=version), pch=21, alpha = 0.5, size=4) +
-    geom_text(aes(x=edr3, y=edr4, label=species)) +
+    geom_point(aes(x=edr3, y=edr4, fill=version), pch=21, alpha = 0.5, size=4) +
+#    geom_text(aes(x=edr3, y=edr4, label=species)) +
     xlab("V3 perceptability estimate (tau)") +
     ylab("V4 perceptability estimate (tau)") +
     scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
     my.theme
 
-ggsave(filename="figures/V3V4_tau_species.jpeg", width =7, height=6)
+#ggsave(filename="figures/V3V4_tau_species.jpeg", width =7, height=6)
+
+ggplot(est34) +
+  geom_abline(intercept = 0, slope = 1) +
+  geom_point(aes(x=sra4, y=sra4.aru, fill=version), pch=21, alpha = 0.5, size=4) +
+  geom_smooth(aes(x=sra4, y=sra4.aru), method="lm") +
+#  geom_text(aes(x=sra4, y=sra4.aru, label=species)) +
+  xlab("V4 point count availability estimate (phi)") +
+  ylab("V4 ARU availability estimate (phi)") +
+  scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
+  my.theme
+
+ggsave(filename="figs/ARUvsPC.jpeg", width=8, height=6, units="in")
+
+lm1 <- lm(sra4.aru ~ sra4, data=est34)
+summary(lm1)
 
 #5. Projects----
 load("data/cleaned_data_2022-10-06.Rdata")
