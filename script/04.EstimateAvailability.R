@@ -92,6 +92,9 @@ modnames.1 <- list(
 #2. Load data----
 load(file.path(root, "Data/qpadv4_clean.Rdata"))
 
+#set intercept as point count sensor
+visit$sensor <- factor(visit$sensor, levels=c("PC", "ARU"))
+
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out duration methods that aren't appropriate for removal modelling (only have 1 time bin)
 durdesign <- visit %>%
@@ -103,6 +106,9 @@ durdesign <- visit %>%
     separate(dm, into=c("t00", "t01", "t02", "t03", "t04", "t05", "t06", "t07", "t08", "t09", "t10"), remove=TRUE, sep="-") %>%
     dplyr::select(-t00) %>%
     mutate_at(c("t01", "t02", "t03", "t04", "t05", "t06", "t07", "t08", "t09", "t10"), ~as.numeric(.))
+
+durdesign.long <- durdesign %>% 
+  pivot_longer(t01:t10, values_to="end", names_to="position")
 
 #4. Get list of species to process----
 spp <- species %>%
@@ -118,23 +124,20 @@ for(i in 1:nrow(spp)){
 
     #6. Filter abundance data for species---
     # filter out observations with unknown duration method or interval
-    # filter out observations with interval > method
+    # filter out observations where interval does not match method
     # filter to observations with covariates
     bird.i <- bird %>%
         dplyr::filter(species==spp$species[i],
                       durationMethod %in% durdesign$durationMethod,
                       !durationInterval %in% c("UNKNOWN", "before or after/incidental")) %>% 
-      left_join(durdesign %>% 
-                  rowwise() %>% 
-                  mutate(m = pmax(t01, t02, t03, t04, t05, t06, t07, t08, t09, t10, na.rm=TRUE)) %>% 
-                  data.frame(),
-                by="durationMethod") %>% 
-      mutate(durationMinutes = str_sub(durationInterval, -100, -4)) %>% 
-      separate(durationMinutes, into=c("durmin", "durmax"), sep="-", remove=FALSE) %>% 
-      dplyr::filter(as.numeric(durmax) <= m) %>%
-        group_by(id, durationMethod, durationInterval) %>%
-        summarize(abundance = sum(abundance)) %>%
-        ungroup()
+      separate(durationInterval, into=c("start", "end"), sep="-", remove=FALSE, extra="drop", fill="right") %>%
+      mutate(start = as.numeric(start),
+             end = as.numeric(str_sub(end, -100, -4))) %>%
+      left_join(durdesign.long, by=c("durationMethod", "end")) %>% 
+      dplyr::filter(!is.na(position)) %>% 
+      group_by(id, durationMethod, durationInterval, position) %>%
+      summarize(abundance = sum(abundance)) %>%
+      ungroup()
 
     #only model if there is data
     if(nrow(bird.i) > 0){
@@ -167,12 +170,6 @@ for(i in 1:nrow(spp)){
         #add dummy variables for each of the columns to make sure the matrix is the right width
         y <- bird.i %>%
             dplyr::filter(id %in% x$id) %>%
-            separate(durationInterval, into=c("start", "end"), sep="-", remove=FALSE, extra="drop", fill="right") %>%
-            mutate(start = as.numeric(start),
-                   end = as.numeric(str_sub(end, -100, -4))) %>%
-            left_join(durdesign %>%
-                          pivot_longer(t01:t10, values_to="end", names_to="position"),
-                      by=c("durationMethod", "end")) %>% 
             dplyr::select(id, position, abundance) %>%
             arrange(position)  %>% 
             rbind(data.frame(id="dummy", position=colnames(d), abundance=NA)) %>% 
@@ -188,11 +185,33 @@ for(i in 1:nrow(spp)){
             y[j, indices] <- NA
         }
         
-        #12. Determine model set based on # of sensors in data----
+        #12. Determine model set based on # of sensors in data and comparison with sensor only model----
         if(length(unique(x$sensor))> 1){
-          mods <- mods.2
-          modnames <- modnames.2
+          
+          mod.null <- try(cmulti(y | d ~ 1, x, type="rem"))
+          mod.sensor <- try(cmulti(y | d ~ sensor, x, type="rem"))
+          
+          if(class(mod.null)!="try-error" & class(mod.null)!="try-error"){
+            
+            if(AIC(mod.sensor) < AIC(mod.null)){
+              mods <- mods.2
+              modnames <- modnames.2
+            }
+            
+            if(AIC(mod.sensor) >= AIC(mod.null)){
+              mods <- mods.1
+              modnames <- modnames.1
+            }
+            
+          }
+          
+          if(class(mod.null)=="try-error" | class(mod.sensor)=="try-error"){
+            mods <- mods.1
+            modnames <- modnames.1
+          }
+          
         }
+        
         if(length(unique(x$sensor))==1){
           mods <- mods.1
           modnames <- modnames.1
