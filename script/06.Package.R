@@ -7,10 +7,12 @@
 
 library(tidyverse) #basic data wrangling
 
-load("results/availability_results_2022-10-06.Rdata")
-load("results/perceptability_results_2022-10-06.Rdata")
-load("data/cleaned_data_2022-10-06.Rdata")
-tax <- read.csv("data/taxonomytable.csv")
+root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
+
+load(file.path(root, "Results/availability.Rdata"))
+load(file.path(root, "Results/perceptability.Rdata"))
+load(file.path(root, "Data/qpadv4_clean.Rdata"))
+tax <- read.csv(file.path(root, "Data/taxonomytable.csv"))
 
 #1. Remove species that didn't have enough data----
 resDurOK <- avail[!sapply(avail, length)==0]
@@ -63,7 +65,7 @@ n.min.class <- 5 # min number of detections within each class
 for (spp in rownames(edr_mod)) {
     ## data for checking detections in classes
     bird.i <- bird %>%
-        dplyr::filter(speciesCode==spp,
+        dplyr::filter(species==spp,
                       distanceMethod %in% distdesign$distanceMethod,
                       distanceBand!="UNKNOWN") %>%
         dplyr::select(id) %>%
@@ -112,7 +114,7 @@ sra_models[sra_models[,1]==0,] <- 0L
 edr_models[edr_models[,1]==0,] <- 0L
 
 #7. Exclude species with phi estimate < 0.01----
-phi0 <- sapply(resDur, function(z) exp(z[["0"]]$coefficients))
+phi0 <- sapply(resDur, function(z) exp(z[["0"]]$coefficients[[1]]))
 names(phi0) <- names(resDur)
 sra_models[names(phi0)[phi0 < 0.01],] <- 0L
 
@@ -270,6 +272,6 @@ bamcoefs <- list(spp=spp,
                  version=version)
 .BAMCOEFS4 <- list2env(bamcoefs)
 
-save(.BAMCOEFS4, file="results/BAMCOEFS_QPAD_v4.rda")
+save(.BAMCOEFS4, file=file.path(root, "Results/BAMCOEFS_QPAD_v4.rda"))
 toDump <- as.list(.BAMCOEFS4)
-dump("toDump", file="results/BAMCOEFS_QPAD_v4.Rdump")
+dump("toDump", file=file.path(root, "Results/BAMCOEFS_QPAD_v4.Rdump"))
