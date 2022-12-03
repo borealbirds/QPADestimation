@@ -143,7 +143,6 @@ load(file.path(root, "wildtrax_raw_2022-11-22.Rdata"))
 #1. BAM patch----
 raw.bam <- readRDS(file.path(root, "pc_patch.rds"))
 
-
 #C. HARMONIZE###############################
 
 #1. Set desired columns----
@@ -175,22 +174,21 @@ use.bam <- raw.bam %>%
   mutate(source = "BAM",
          sensor = "PC",
          singlesp = "n",
-         surveyDateTime = ifelse(visitDate=="", paste0("2012-06-15", surveyDateTime), surveyDateTime),
-         date = ymd_hms(surveyDateTime),
+         date = ymd_hms(date),
          year = year(date),
          observer = NA,
          ARUMethod= NA,
          individual = NA,
          tagStart = NA) %>% 
-  rename(buffer = bufferRadiusMeters, lat = latitude, lon = longitude, durationInterval = durationinterval, distanceBand = distanceband) %>% 
-  dplyr::select(all_of(colnms)) %>% 
-  dplyr::filter(!is.na(date))
+  rename(buffer = 'bufferRadius(m)', lat = latitude, lon = longitude, species=speciesCode) %>% 
+  dplyr::select(all_of(colnms))
 
 #D. PUT DATASETS TOGETHER & SAVE######################
 
 #1. Put together----
 use <- rbind(use.wt, use.bam) %>% 
-  mutate(id = paste(project, location, lat, lon, observer, date, ARUMethod))
+  mutate(id = paste(project, location, lat, lon, observer, date, ARUMethod)) %>% 
+  dplyr::filter(!is.na(date))
 
 #2. Save----
 save(use, file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_raw.Rdata")
