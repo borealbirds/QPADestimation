@@ -71,7 +71,7 @@ bird <- first %>%
 
 
 #3. Add species list----
-species <- read.csv(file.path("singing-species.csv")) %>%
+species <- read.csv(file.path(root, "singing-species.csv")) %>%
     rename(species = Species_ID)
 
 #4. Save----
