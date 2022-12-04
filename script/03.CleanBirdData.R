@@ -18,11 +18,13 @@ load(file.path(root,"qpadv4_visit.Rdata"))
 #Ensure there's visit data
 #Remove UNSPs
 #Remove records without abundance
+#Replace GRAJ with CAJA
 dat <- use %>% 
     dplyr::filter(str_sub(species, 1, 2)!="UN",
                   id %in% visit$id,
                   !is.na(abundance),
-                  !abundance %in% c("CI 1", "CI 2", "CI 3", "N/A", "0", ""))
+                  !abundance %in% c("CI 1", "CI 2", "CI 3", "N/A", "0", "")) %>% 
+  mutate(species = ifelse(species=="GRAJ", "CAJA", species))
 
 #2. Filter to just first detection per individual and bin in minutes----
 #bin in 30 s bins for 60 s surveys
