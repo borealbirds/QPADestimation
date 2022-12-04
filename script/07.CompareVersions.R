@@ -122,7 +122,11 @@ est34 <- full_join(est3, est4) %>%
     mutate(version = case_when(edr3==0 ~ "V4",
                                edr4==0 ~ "V3",
                                !is.na(edr4) ~ "Both")) %>%
-    left_join(n34)
+    left_join(n34) %>% 
+  mutate(sra34 = sra3/sra4,
+         edr34 = edr3/edr4,
+         sra34.abs = abs(1-sra34),
+         edr34.abs = abs(1-edr34))
 
 ggplot(est34) +
     geom_abline(intercept = 0, slope = 1) +
@@ -161,10 +165,49 @@ ggsave(filename="figs/ARUvsPC.jpeg", width=8, height=6, units="in")
 lm1 <- lm(sra4.aru ~ sra4, data=est34)
 summary(lm1)
 
-#5. Projects----
-load("data/cleaned_data_2022-10-06.Rdata")
-load("data/new_offset_data_package_2017-03-01.Rdata")
+#5. Sample size vs estimate----
+ggplot(est34 %>% 
+         dplyr::filter(version=="Both")) +
+  geom_point(aes(x=sra.n, y=sra34.abs, colour=sra.n4)) +
+  geom_smooth(aes(x=sra.n, y=sra34.abs)) +
+  scale_colour_viridis_c()
+
+ggplot(est34 %>% 
+         dplyr::filter(version=="Both")) +
+  geom_point(aes(x=sra.n4, y=sra34.abs, colour=sra.n4)) +
+  geom_smooth(aes(x=sra.n4, y=sra34.abs)) +
+  scale_colour_viridis_c()
+
+ggplot(est34 %>% 
+         dplyr::filter(version=="Both")) +
+  geom_point(aes(x=edr.n, y=edr34.abs, colour=edr.n4)) +
+  geom_smooth(aes(x=edr.n, y=edr34.abs)) +
+  scale_colour_viridis_c()
+
+ggplot(est34 %>% 
+         dplyr::filter(version=="Both")) +
+  geom_point(aes(x=edr.n4, y=edr34.abs, colour=edr.n4)) +
+  geom_smooth(aes(x=edr.n4, y=edr34.abs)) +
+  scale_colour_viridis_c()
+
+#6. Projects----
+load(file.path(root, "Data/qpadv4_clean.Rdata"))
+load(file.path(root, "Data/new_offset_data_package_2017-03-01.Rdata"))
 load("data/wildtrax_data_2022-10-06.Rdata")
+
+#investigate DUNL, NESP, MOBL, RECR, WISN, BBWA, WETA, TEWA
+
+#NESP
+spp3 <- pc %>% 
+  dplyr::filter(SPECIES=="WETA") %>% 
+  group_by(PCODE, DISMETH, DURMETH) %>% 
+  summarize(n=n()) %>% 
+  ungroup()
+spp4 <- bird %>% 
+  dplyr::filter(species=="WETA") %>% 
+  group_by(project, distanceMethod, durationMethod) %>% 
+  summarize(n=n()) %>% 
+  ungroup()
 
 pcode <- visit %>%
     separate(location, into=c("pcode", "cluster", "station"), remove=FALSE, sep=":")
