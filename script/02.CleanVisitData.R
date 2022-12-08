@@ -51,9 +51,11 @@ method <- use %>%
 #Standardize sig figs for location to remove duplicates
 #Remove outliers for day of year (use 99% quantile)
 #Take out BBS because isn't useful for removal or distance sampling
+#Remove singlesp datasets
 dat <- method %>%
   dplyr::filter(!is.na(date),
-                project!="BAM-BBS") %>% 
+                project!="BAM-BBS",
+                singlesp=="n") %>% 
     dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod) %>%
     mutate(lat = round(lat, 5),
            lon = round(lon, 5),
@@ -201,8 +203,8 @@ visit <- covariates %>%
     group_by(id) %>% 
     dplyr::filter(methodlength == max(methodlength)) %>% 
     sample_n(1) %>% 
-    ungroup() %>% 
-    dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, julian, jday, hssr, tssr, seedgrow, tsg, bcr, province, country, tree, lcc2, lcc4)
+  ungroup() %>% 
+  dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, julian, jday, hssr, tssr, seedgrow, tsg, bcr, province, country, tree, lcc2, lcc4)
 
 #9. Save----
 save(visit, file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_visit.Rdata")
