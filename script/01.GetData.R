@@ -146,7 +146,7 @@ raw.bam <- readRDS(file.path(root, "pc_patch.rds"))
 #C. HARMONIZE###############################
 
 #1. Set desired columns----
-colnms <- c("source", "project", "sensor", "singlesp", "location", "buffer", "lat", "lon", "year", "date", "observer", "ARUMethod", "durationMethod", "distanceMethod", "species", "abundance", "individual", "durationInterval", "distanceBand", "tagStart")
+colnms <- c("source", "project", "sensor", "singlesp", "location", "buffer", "lat", "lon", "year", "date", "observer", "ARUMethod", "durationMethod", "distanceMethod", "species", "abundance", "individual", "durationInterval", "distanceBand", "tagStart", "isHeard", "isSeen")
 
 #2. Wrangle wildtrax data-----
 #identify single species projects
