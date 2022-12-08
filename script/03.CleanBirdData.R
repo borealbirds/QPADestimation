@@ -19,11 +19,13 @@ load(file.path(root,"qpadv4_visit.Rdata"))
 #Remove UNSPs
 #Remove records without abundance
 #Replace GRAJ with CAJA
+#Remove records with auditory detections
 dat <- use %>% 
     dplyr::filter(str_sub(species, 1, 2)!="UN",
                   id %in% visit$id,
                   !is.na(abundance),
-                  !abundance %in% c("CI 1", "CI 2", "CI 3", "N/A", "0", "")) %>% 
+                  !abundance %in% c("CI 1", "CI 2", "CI 3", "N/A", "0", ""),
+                  !isHeard %in% c("f", "no", "No")) %>% 
   mutate(species = ifelse(species=="GRAJ", "CAJA", species))
 
 #2. Filter to just first detection per individual and bin in minutes----
@@ -34,7 +36,7 @@ first <- dat %>%
   dplyr::select(-distanceMethod, -durationMethod) %>% 
   left_join(visit %>% 
               dplyr::select(id, distanceMethod, durationMethod)) %>%
-  group_by(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, species, abundance, individual) %>% 
+  group_by(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, species, abundance, individual, isSeen, isHeard) %>% 
   mutate(firstTag = min(tagStart)) %>%
   ungroup() %>%
   dplyr::filter(tagStart == firstTag) %>% 
@@ -47,11 +49,12 @@ first <- dat %>%
     dplyr::select(colnames(dat)) %>% 
     rbind(dat %>% 
             dplyr::filter(sensor=="PC")) %>%
-  dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, distanceBand, durationInterval, species, abundance)
+  dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, distanceBand, durationInterval, species, abundance, isSeen, isHeard)
 
 #3. Replace TMTTs with predicted abundance----
 tmtt <- read.csv("C:/Users/Elly Knight/Documents/ABMI/Projects/TMTT/data/tmtt_predictions.csv") %>% 
   rename(species = species_code)
+
 user <- read.csv("C:/Users/Elly Knight/Documents/ABMI/Projects/TMTT/data/app_user.csv") %>% 
   rename(observer = user_name) %>% 
   dplyr::select(observer, user_id)
