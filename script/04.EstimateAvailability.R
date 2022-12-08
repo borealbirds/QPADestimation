@@ -157,7 +157,7 @@ for(i in 1:nrow(spp)){
                           !is.na(jday),
                           durationMethod %in% durdesign$durationMethod) %>%
             arrange(id) %>%
-            dplyr::select(id, durationMethod, sensor, jday, tssr, tsg)
+            dplyr::select(id, durationMethod, sensor, year, jday, tssr, tsg)
 
         #9. Create design matrix----
         d <- x %>%
@@ -203,6 +203,12 @@ for(i in 1:nrow(spp)){
               modnames <- modnames.1
             }
             
+            #species for which the PC model gives an unrealistically low estimate
+            if(exp(mod.sensor$coefficients[[1]] < 0.01)){
+              mods <- mods.1
+              modnames <- modnames.1
+            }
+            
           }
           
           if(class(mod.null)=="try-error" | class(mod.sensor)=="try-error"){
@@ -216,33 +222,33 @@ for(i in 1:nrow(spp)){
           mods <- mods.1
           modnames <- modnames.1
         }
-
+        
         #13. Fit models----
         #Save a bunch of metadata like sample size and aic value
         mod.list <- list()
         for (j in 1:length(mods)) {
-            f <- as.formula(paste0("y | d ", paste(as.character(mods[[j]]), collapse=" ")))
-            mod <- try(cmulti(f, x, type="rem"))
-            if (!inherits(mod, "try-error")) {
-                rmvl <- mod[c("coefficients","vcov","nobs","loglik")]
-                rmvl$p <- length(coef(mod))
-                rmvl$names <- modnames[[j]]
-            } else {
-                rmvl <- mod
-            }
-            mod.list[[names(modnames)[j]]] <- rmvl
+          f <- as.formula(paste0("y | d ", paste(as.character(mods[[j]]), collapse=" ")))
+          mod <- try(cmulti(f, x, type="rem"))
+          if (!inherits(mod, "try-error")) {
+            rmvl <- mod[c("coefficients","vcov","nobs","loglik")]
+            rmvl$p <- length(coef(mod))
+            rmvl$names <- modnames[[j]]
+          } else {
+            rmvl <- mod
+          }
+          mod.list[[names(modnames)[j]]] <- rmvl
         }
-
+        
         #14. Save model results to species list---
         avail[[i]] <- mod.list
-
+        
     }
-
+    
     print(paste0("Finished modelling species ", spp$English_Name[i], ": ", i, " of ", nrow(spp), " species"))
-
+    
 }
 
 names(avail) <- spp$species
 
 #15. Save out results----
-save(durdesign, avail, file=file.path(root, "Results/availability.Rdata"))
+save(durdesign, avail, file=file.path(root, "Results/availability.Rdata")) 
