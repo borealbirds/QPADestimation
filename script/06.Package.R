@@ -202,12 +202,12 @@ edr_aic[] <- Inf
 edr_aicc[] <- Inf
 edr_bic[] <- Inf
 for (i in spp) {
-    sra_aic[i,] <- -2*sra_loglik[i,] + 2*sra_df
-    sra_aicc[i,] <- sra_aic[i,] + (2*sra_df*(sra_df+1)) / (sra_n[i]-sra_df-1)
-    sra_bic[i,] <- -2*sra_loglik[i,] + log(sra_n[i])*sra_df
-    edr_aic[i,] <- -2*edr_loglik[i,] + 2*edr_df
-    edr_aicc[i,] <- edr_aic[i,] + (2*edr_df*(edr_df+1)) / (edr_n[i]-edr_df-1)
-    edr_bic[i,] <- -2*edr_loglik[i,] + log(edr_n[i])*edr_df
+  sra_aic[i,] <- -2*sra_loglik[i,] + 2*sra_df
+  sra_aicc[i,] <- sra_aic[i,] + (2*sra_df*(sra_df+1)) / (sra_n[i]-sra_df-1)
+  sra_bic[i,] <- -2*sra_loglik[i,] + log(sra_n[i])*sra_df
+  edr_aic[i,] <- -2*edr_loglik[i,] + 2*edr_df
+  edr_aicc[i,] <- edr_aic[i,] + (2*edr_df*(edr_df+1)) / (edr_n[i]-edr_df-1)
+  edr_bic[i,] <- -2*edr_loglik[i,] + log(edr_n[i])*edr_df
 }
 
 #18. Rank models----
