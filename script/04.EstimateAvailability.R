@@ -204,7 +204,7 @@ for(i in 1:nrow(spp)){
             }
             
             #species for which the PC model gives an unrealistically low estimate
-            if(exp(mod.sensor$coefficients[[1]] < 0.01)){
+            if(exp(mod.sensor$coefficients[[1]]) < 0.01){
               mods <- mods.1
               modnames <- modnames.1
             }
