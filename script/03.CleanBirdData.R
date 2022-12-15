@@ -35,8 +35,8 @@ first <- dat %>%
   dplyr::filter(sensor=="ARU") %>% 
   dplyr::select(-distanceMethod, -durationMethod) %>% 
   left_join(visit %>% 
-              dplyr::select(id, distanceMethod, durationMethod)) %>%
-  group_by(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, species, abundance, individual, isSeen, isHeard) %>% 
+              dplyr::select(id, distanceMethod, durationMethod, tagMethod)) %>%
+  group_by(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date,  observer, species, abundance, individual, isSeen, isHeard) %>% 
   mutate(firstTag = min(tagStart)) %>%
   ungroup() %>%
   dplyr::filter(tagStart == firstTag) %>% 
@@ -46,10 +46,11 @@ first <- dat %>%
                                       durationMethod=="0-0.5-1min" & end==2 ~ "0.5-1min",
                                       !is.na(durationMethod) ~ paste0(end-1, "-", end, "min")),
          distanceBand = "UNKNOWN") %>% 
-    dplyr::select(colnames(dat)) %>% 
+    dplyr::select(c(colnames(dat), tagMethod)) %>% 
     rbind(dat %>% 
-            dplyr::filter(sensor=="PC")) %>%
-  dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, distanceBand, durationInterval, species, abundance, isSeen, isHeard)
+            dplyr::filter(sensor=="PC") %>% 
+            mutate(tagMethod=NA)) %>%
+  dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod, distanceBand, durationInterval, species, abundance, isSeen, isHeard)
 
 #3. Replace TMTTs with predicted abundance----
 tmtt <- read.csv("C:/Users/Elly Knight/Documents/ABMI/Projects/TMTT/data/tmtt_predictions.csv") %>% 

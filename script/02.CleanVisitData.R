@@ -42,9 +42,10 @@ method <- use %>%
                                     minutes==8 ~ "0-1-2-3-4-5-6-7-8min",
                                     minutes==9 ~ "0-1-2-3-4-5-6-7-8-9min",
                                     minutes==10 ~ "0-1-2-3-4-5-6-7-8-9-10min")) %>% 
-  dplyr::select(colnames(use)) %>% 
+  dplyr::select(c(colnames(use), tagMethod)) %>% 
   rbind(use %>% 
-          dplyr::filter(sensor=="PC"))
+          dplyr::filter(sensor=="PC") %>% 
+          mutate(tagMethod=NA))
 
 #3. Subset to visits & filter----
 #Remove surveys with no location
@@ -56,13 +57,13 @@ dat <- method %>%
   dplyr::filter(!is.na(date),
                 project!="BAM-BBS",
                 singlesp=="n") %>% 
-    dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod) %>%
+    dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod) %>%
     mutate(lat = round(lat, 5),
            lon = round(lon, 5),
            buffer = ifelse(is.na(buffer), 0, buffer),
            julian = yday(date)) %>% 
     unique() %>% 
-  dplyr::filter(!is.na(lat),
+    dplyr::filter(!is.na(lat),
                 lat > 0, 
                 lon < 0,
                 !is.na(date),
@@ -204,7 +205,7 @@ visit <- covariates %>%
     dplyr::filter(methodlength == max(methodlength)) %>% 
     sample_n(1) %>% 
   ungroup() %>% 
-  dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, julian, jday, hssr, tssr, seedgrow, tsg, bcr, province, country, tree, lcc2, lcc4)
+  dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod, julian, jday, hssr, tssr, seedgrow, tsg, bcr, province, country, tree, lcc2, lcc4)
 
 #9. Save----
 save(visit, file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_visit.Rdata")
