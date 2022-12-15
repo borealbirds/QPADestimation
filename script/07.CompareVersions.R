@@ -43,7 +43,8 @@ sppnew <- spp34 %>%
 
 #3. Sample size----
 n3 <- data.frame(sra.n3=.BAMCOEFS$sra_n, edr.n3=.BAMCOEFS$edr_n,
-                 species=.BAMCOEFS$spp)
+                 species=.BAMCOEFS$spp) %>% 
+  mutate(species = ifelse(species=="GRAJ", "CAJA", species))
 n4 <- data.frame(sra.n4=.BAMCOEFS4$sra_n, edr.n4=.BAMCOEFS4$edr_n,
                  species=.BAMCOEFS4$spp)
 
@@ -101,6 +102,8 @@ for(i in 1:length(spp3)){
                   data.frame(sra3=sra3, edr3=edr3, species=spp3[i]))
 }
 rownames(est3) <- NULL
+est3 <- est3 %>% 
+  mutate(species = ifelse(species=="GRAJ", "CAJA", species))
 
 est4 <-data.frame()
 for(i in 1:length(spp4)){
@@ -127,6 +130,8 @@ est34 <- full_join(est3, est4) %>%
          edr34 = edr3/edr4,
          sra34.abs = abs(1-sra34),
          edr34.abs = abs(1-edr34))
+
+write.csv(est34, file.path(root, "Results/QPADV3V4NullEstimates.csv"), row.names=FALSE)
 
 ggplot(est34) +
     geom_abline(intercept = 0, slope = 1) +
@@ -193,7 +198,6 @@ ggplot(est34 %>%
 #6. Projects----
 load(file.path(root, "Data/qpadv4_clean.Rdata"))
 load(file.path(root, "Data/new_offset_data_package_2017-03-01.Rdata"))
-load("data/wildtrax_data_2022-10-06.Rdata")
 
 #investigate DUNL, NESP, MOBL, RECR, WISN, BBWA, WETA, TEWA
 
@@ -211,3 +215,9 @@ spp4 <- bird %>%
 
 pcode <- visit %>%
     separate(location, into=c("pcode", "cluster", "station"), remove=FALSE, sep=":")
+
+
+load(file.path(root, "Data/new_offset_data_package_2017-03-01.Rdata"))
+pc.sp <- pc %>% 
+  dplyr::filter(SPECIES=="RECR",
+                !DURMETH%in%c("A", "B", "D"))
