@@ -26,10 +26,13 @@ load(file.path(root, "/qpadv4_raw.Rdata"))
 #Remove surveys with "none" method
 #Remove surveys that are not a factor of 60s
 #Remove tags that are after the indicated duration
+#create combination of sensor and tagmethod
+#identify ARU surveys in the PC sensor and treat accordingly
 method <- use %>%
   dplyr::filter(sensor=="ARU") %>% 
   separate(ARUMethod, into=c("duration", "tagMethod"), sep=" ", remove=FALSE) %>%
-  mutate(minutes = as.numeric(str_sub(duration, -100, -2))/60) %>% 
+  mutate(minutes = as.numeric(str_sub(duration, -100, -2))/60,
+         tagMethod = paste0("ARU-", tagMethod)) %>% 
   dplyr::filter(minutes %in% c(1:10),
                 tagStart <= minutes*60) %>%
   mutate(durationMethod = case_when(minutes==1 ~ "0-0.5-1min",
@@ -44,19 +47,24 @@ method <- use %>%
                                     minutes==10 ~ "0-1-2-3-4-5-6-7-8-9-10min")) %>% 
   dplyr::select(c(colnames(use), tagMethod)) %>% 
   rbind(use %>% 
-          dplyr::filter(sensor=="PC") %>% 
-          mutate(tagMethod=NA))
+          dplyr::filter(sensor=="PC" & distanceMethod != "0m-INF-ARU") %>% 
+          mutate(tagMethod="PC")) %>% 
+  rbind(use %>% 
+          dplyr::filter(sensor=="PC" & distanceMethod=="0m-INF-ARU") %>% 
+          mutate(tagMethod="ARU-1SPT",
+                 sensor="ARU"))
 
 #3. Subset to visits & filter----
 #Remove surveys with no location
 #Standardize sig figs for location to remove duplicates
 #Remove outliers for day of year (use 99% quantile)
 #Take out BBS because isn't useful for removal or distance sampling
-#Remove singlesp datasets
+#Remove singlesp datasets & none tag methods
 dat <- method %>%
   dplyr::filter(!is.na(date),
                 project!="BAM-BBS",
-                singlesp=="n") %>% 
+                singlesp=="n",
+                tagMethod!="None") %>% 
     dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod) %>%
     mutate(lat = round(lat, 5),
            lon = round(lon, 5),
@@ -205,7 +213,7 @@ visit <- covariates %>%
     dplyr::filter(methodlength == max(methodlength)) %>% 
     sample_n(1) %>% 
   ungroup() %>% 
-  dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod, julian, jday, hssr, tssr, seedgrow, tsg, bcr, province, country, tree, lcc2, lcc4)
+  dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod, jday, hssr, tssr, seedgrow, tsg, bcr, province, country, tree, lcc2, lcc4)
 
 #9. Save----
 save(visit, file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_visit.Rdata")

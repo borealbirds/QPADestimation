@@ -48,8 +48,11 @@ first <- dat %>%
          distanceBand = "UNKNOWN") %>% 
     dplyr::select(c(colnames(dat), tagMethod)) %>% 
     rbind(dat %>% 
-            dplyr::filter(sensor=="PC") %>% 
-            mutate(tagMethod=NA)) %>%
+            dplyr::filter(sensor=="PC" & distanceMethod!="0m-INF-ARU") %>% 
+            mutate(tagMethod="PC")) %>%
+  rbind(dat %>% 
+          dplyr::filter(sensor=="PC" & distanceMethod=="0m-INF-ARU") %>% 
+          mutate(tagMethod="ARU-1SPT")) %>% 
   dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod, distanceBand, durationInterval, species, abundance, isSeen, isHeard)
 
 #3. Replace TMTTs with predicted abundance----
