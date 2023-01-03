@@ -42,8 +42,28 @@ edr_models <- matrix(0L, length(tmp), ncol(edr_mod))
 dimnames(edr_models) <- list(tmp, colnames(edr_mod))
 edr_models[rownames(edr_mod),] <- edr_mod
 
-#4. Check for dropped factor levels in removal models----
+#4. Check for dropped factor levels & min # of detections within each class for removal models----
+n.min.class <- 5 # min number of detections within each class
 for (spp in rownames(sra_mod)) {
+  ## data for checking detections in classes
+  bird.i <- bird %>%
+    dplyr::filter(species==spp,
+                  durationMethod %in% durdesign$durationMethod,
+                  !durationInterval %in% c("UNKNOWN", "before or after/incidental"),
+                  !is.na(tagMethod),
+                  singlesp=="n") %>%
+    dplyr::select(id) %>%
+    unique()
+  Dat <- visit %>%
+    dplyr::filter(id %in% unique(bird.i$id),
+                  !is.na(tssr),
+                  !is.na(tsg),
+                  !is.na(jday),
+                  tagMethod!="ARU-None",
+                  !is.na(tagMethod)) %>%
+    group_by(tagMethod) %>% 
+    summarize(n=n()) %>% 
+    ungroup()
     for (mid in colnames(sra_models)) {
         if (!inherits(resDur[[spp]][[mid]], "try-error")) {
             lcf <- length(resDur[[spp]][[mid]]$coefficients)
@@ -53,7 +73,21 @@ for (spp in rownames(sra_mod)) {
                     "( len.coef =", lcf, ", len.name =", lnm, ")\n")
                 sra_models[spp,mid] <- 0
             }
-        } else {
+            else {
+              if (mid %in% colnames(sra_models)[16:30] && min(Dat$n) < n.min.class) {
+              cat("Tag method min issue for", spp, "model", mid, "\n")
+              sra_models[spp,mid] <- 0
+              }
+              if (mid %in% colnames(sra_models)[16:30] && exp(sum(resDur$spp$mid$coefficients[c(1,2)])) > 3){
+                cat("Tag method SPT estimate issue for", spp, "model", mid, "\n")
+                sra_models[spp,mid] <- 0
+              }
+              if (mid %in% colnames(sra_models)[16:30] && exp(sum(resDur$spp$mid$coefficients[c(1,3)])) > 3){
+                cat("Tag method SPM estimate issue for", spp, "model", mid, "\n")
+                sra_models[spp,mid] <- 0
+              }
+        } 
+      } else {
             resDur[[spp]][[mid]] <- structure("Error", class = "try-error")
         }
         flush.console()
@@ -133,8 +167,10 @@ sra_nn <- sapply(resDur, function(z) ifelse(inherits(z[["0"]], "try-error"),
 sra_n[names(sra_nn)] <- sra_nn
 
 #10. exclude all models for species with < n.con observations----
+#Except NESP because has several points in the great lakes due to the use of the low resolution rasters from the package and so n < 25
 n.con <- 25
 sra_models[sra_n < n.con, ] <- 0L
+edr_n["NESP"] <- 25
 edr_models[edr_n < n.con, ] <- 0L
 
 #11. Exclude everything but null for species with n.con < observations < n.min----
@@ -232,6 +268,23 @@ sra_bicbest <- apply(sra_bicrank, 1, function(z) colnames(sra_models)[which.min(
 edr_aicbest <- apply(edr_aicrank, 1, function(z) colnames(edr_models)[which.min(z)])
 edr_aiccbest <- apply(edr_aiccrank, 1, function(z) colnames(edr_models)[which.min(z)])
 edr_bicbest <- apply(edr_bicrank, 1, function(z) colnames(edr_models)[which.min(z)])
+
+#19. Replace EDR estimates with V3 for NESP----
+library(QPAD)
+load_BAM_QPAD(3)
+
+edr_models["NESP",] <- .BAMCOEFS$edr_models["NESP",]
+edr_loglik["NESP",] <- .BAMCOEFS$edr_loglik["NESP",]
+edr_aic["NESP",] <- .BAMCOEFS$edr_aic["NESP",]
+edr_aicc["NESP",] <- .BAMCOEFS$edr_aicc["NESP",]
+edr_bic["NESP",] <- .BAMCOEFS$edr_bic["NESP",]
+edr_aicrank["NESP",] <- .BAMCOEFS$edr_aicrank["NESP",]
+edr_aiccrank["NESP",] <- .BAMCOEFS$edr_aiccrank["NESP",]
+edr_bicrank["NESP",] <- .BAMCOEFS$edr_bicrank["NESP",]
+edr_aicbest["NESP"] <- .BAMCOEFS$edr_aicbest["NESP"]
+edr_aiccbest["NESP"] <- .BAMCOEFS$edr_aiccbest["NESP"]
+edr_bicbest["NESP"] <- .BAMCOEFS$edr_bicbest["NESP"]
+edr_estimates["NESP"] <- .BAMCOEFS$edr_estimates["NESP"]
 
 #19. Set version----
 version <- "4"
