@@ -109,10 +109,17 @@ est4 <-data.frame()
 for(i in 1:length(spp4)){
   
     sra4 <- exp(.BAMCOEFS4$sra_estimates[[i]]$`0`$coefficients[1])
-    sra4.aru <- exp(sum(.BAMCOEFS4$sra_estimates[[i]]$`0`$coefficients))
+    if(.BAMCOEFS4$sra_models[[i,"15"]]==1){
+      sra4.pc <- exp(.BAMCOEFS4$sra_estimates[[i]]$'15'$coefficients[[1]])
+      sra4.aru <- exp(sum(.BAMCOEFS4$sra_estimates[[i]]$`15`$coefficients[c(1,2)]))
+    }
+    else{
+      sra4.pc <- NA
+      sra4.aru <- NA
+    }
     edr4 <- exp(.BAMCOEFS4$edr_estimates[[i]]$`0`$coefficients)
     est4 <- rbind(est4,
-                  data.frame(sra4=sra4, sra4.aru=sra4.aru, edr4=edr4, species=spp4[i]))
+                  data.frame(sra4=sra4, sra4.aru=sra4.aru, sra4.pc=sra4.pc, edr4=edr4, species=spp4[i]))
 }
 rownames(est4) <- NULL
 
@@ -121,7 +128,8 @@ est34 <- full_join(est3, est4) %>%
            sra3 = ifelse(is.na(sra3), 0, sra3),
            edr4 = ifelse(is.na(edr4), 0, edr4),
            sra4 = ifelse(is.na(sra4), 0, sra4),
-           sra4.aru = ifelse(is.na(sra4.aru), 0, sra4.aru)) %>%
+           sra4.aru = ifelse(is.na(sra4.aru), 0, sra4.aru),
+           sra4.pc = ifelse(is.na(sra4.pc), 0, sra4.pc)) %>%
     mutate(version = case_when(edr3==0 ~ "V4",
                                edr4==0 ~ "V3",
                                !is.na(edr4) ~ "Both")) %>%
@@ -161,7 +169,7 @@ ggplot(est34) +
   geom_smooth(aes(x=sra4, y=sra4.aru), method="lm") +
 #  geom_text(aes(x=sra4, y=sra4.aru, label=species)) +
   xlab("V4 point count availability estimate (phi)") +
-  ylab("V4 ARU availability estimate (phi)") +
+  ylab("V4 SPT availability estimate (phi)") +
   scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
   my.theme
 
@@ -175,13 +183,15 @@ ggplot(est34 %>%
          dplyr::filter(version=="Both")) +
   geom_point(aes(x=sra.n, y=sra34.abs, colour=sra.n4)) +
   geom_smooth(aes(x=sra.n, y=sra34.abs)) +
-  scale_colour_viridis_c()
+  scale_colour_viridis_c()+
+  ylim(c(0,1))
 
 ggplot(est34 %>% 
          dplyr::filter(version=="Both")) +
   geom_point(aes(x=sra.n4, y=sra34.abs, colour=sra.n4)) +
   geom_smooth(aes(x=sra.n4, y=sra34.abs)) +
-  scale_colour_viridis_c()
+  scale_colour_viridis_c() +
+  ylim(c(0,1))
 
 ggplot(est34 %>% 
          dplyr::filter(version=="Both")) +
@@ -194,30 +204,3 @@ ggplot(est34 %>%
   geom_point(aes(x=edr.n4, y=edr34.abs, colour=edr.n4)) +
   geom_smooth(aes(x=edr.n4, y=edr34.abs)) +
   scale_colour_viridis_c()
-
-#6. Projects----
-load(file.path(root, "Data/qpadv4_clean.Rdata"))
-load(file.path(root, "Data/new_offset_data_package_2017-03-01.Rdata"))
-
-#investigate DUNL, NESP, MOBL, RECR, WISN, BBWA, WETA, TEWA
-
-#NESP
-spp3 <- pc %>% 
-  dplyr::filter(SPECIES=="WETA") %>% 
-  group_by(PCODE, DISMETH, DURMETH) %>% 
-  summarize(n=n()) %>% 
-  ungroup()
-spp4 <- bird %>% 
-  dplyr::filter(species=="WETA") %>% 
-  group_by(project, distanceMethod, durationMethod) %>% 
-  summarize(n=n()) %>% 
-  ungroup()
-
-pcode <- visit %>%
-    separate(location, into=c("pcode", "cluster", "station"), remove=FALSE, sep=":")
-
-
-load(file.path(root, "Data/new_offset_data_package_2017-03-01.Rdata"))
-pc.sp <- pc %>% 
-  dplyr::filter(SPECIES=="RECR",
-                !DURMETH%in%c("A", "B", "D"))
