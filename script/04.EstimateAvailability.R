@@ -19,7 +19,7 @@ root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive
 #tsg = days since start of seedgrowth from seedgrow layers
 
 #1a. Lists for species that only have data for one method----
-mods.1 <- list(
+mods <- list(
   ~ 1,
   ~ jday,
   ~ tssr,
@@ -34,62 +34,7 @@ mods.1 <- list(
   ~ tsg + tssr,
   ~ poly(tsg, 2) + tssr,
   ~ tsg + poly(tssr, 2),
-  ~ poly(tsg, 2) + poly(tssr, 2))
-names(mods.1) <- 0:14
-modnames.1 <- list(
-  "0"=c("(Intercept)"),
-  "1"=c("(Intercept)", "jday"),
-  "2"=c("(Intercept)", "tssr"),
-  "3"=c("(Intercept)", "jday", "jday2"),
-  "4"=c("(Intercept)", "tssr", "tssr2"),
-  "5"=c("(Intercept)", "jday", "tssr"),
-  "6"=c("(Intercept)", "jday", "jday2", "tssr"),
-  "7"=c("(Intercept)", "jday", "tssr", "tssr2"),
-  "8"=c("(Intercept)", "jday", "jday2", "tssr", "tssr2"),
-  "9"=c("(Intercept)", "tsg"),
-  "10"=c("(Intercept)", "tsg", "tsg2"),
-  "11"=c("(Intercept)", "tsg", "tssr"),
-  "12"=c("(Intercept)", "tsg", "tsg2", "tssr"),
-  "13"=c("(Intercept)", "tsg", "tssr", "tssr2"),
-  "14"=c("(Intercept)", "tsg", "tsg2", "tssr", "tssr2"))
-
-#1b. Lists for species that have data for PC and ARU----
-mods.2 <- list(
-  ~ sensor,
-  ~ sensor + jday,
-  ~ sensor + tssr,
-  ~ sensor + poly(jday, 2),
-  ~ sensor + poly(tssr, 2),
-  ~ sensor + jday + tssr,
-  ~ sensor + poly(jday, 2) + tssr,
-  ~ sensor + jday + poly(tssr, 2),
-  ~ sensor + poly(jday, 2) + poly(tssr, 2),
-  ~ sensor + tsg,
-  ~ sensor + poly(tsg, 2),
-  ~ sensor + tsg + tssr,
-  ~ sensor + poly(tsg, 2) + tssr,
-  ~ sensor + tsg + poly(tssr, 2),
-  ~ sensor + poly(tsg, 2) + poly(tssr, 2))
-names(mods.2) <- 0:14
-modnames.2 <- list(
-  "0"=c("(Intercept)", "sensorARU"),
-  "1"=c("(Intercept)", "sensorARU", "jday"),
-  "2"=c("(Intercept)", "sensorARU", "tssr"),
-  "3"=c("(Intercept)", "sensorARU", "jday", "jday2"),
-  "4"=c("(Intercept)", "sensorARU", "tssr", "tssr2"),
-  "5"=c("(Intercept)", "sensorARU", "jday", "tssr"),
-  "6"=c("(Intercept)", "sensorARU", "jday", "jday2", "tssr"),
-  "7"=c("(Intercept)", "sensorARU", "jday", "tssr", "tssr2"),
-  "8"=c("(Intercept)", "sensorARU", "jday", "jday2", "tssr", "tssr2"),
-  "9"=c("(Intercept)", "sensorARU", "tsg"),
-  "10"=c("(Intercept)", "sensorARU", "tsg", "tsg2"),
-  "11"=c("(Intercept)", "sensorARU", "tsg", "tssr"),
-  "12"=c("(Intercept)", "sensorARU", "tsg", "tsg2", "tssr"),
-  "13"=c("(Intercept)", "sensorARU", "tsg", "tssr", "tssr2"),
-  "14"=c("(Intercept)", "sensorARU", "tsg", "tsg2", "tssr", "tssr2"))
-
-#1c. Lists for species that have data for PC and both ARU transcription tagMethods----
-mods.3 <- list(
+  ~ poly(tsg, 2) + poly(tssr, 2),
   ~ tagMethod,
   ~ tagMethod + jday,
   ~ tagMethod + tssr,
@@ -105,31 +50,45 @@ mods.3 <- list(
   ~ tagMethod + poly(tsg, 2) + tssr,
   ~ tagMethod + tsg + poly(tssr, 2),
   ~ tagMethod + poly(tsg, 2) + poly(tssr, 2))
-names(mods.2) <- 0:14
-modnames.3 <- list(
-  "0"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM"),
-  "1"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday"),
-  "2"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tssr"),
-  "3"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "jday2"),
-  "4"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tssr", "tssr2"),
-  "5"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "tssr"),
-  "6"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "jday2", "tssr"),
-  "7"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "tssr", "tssr2"),
-  "8"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "jday2", "tssr", "tssr2"),
-  "9"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg"),
-  "10"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tsg2"),
-  "11"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tssr"),
-  "12"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tsg2", "tssr"),
-  "13"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tssr", "tssr2"),
-  "14"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tsg2", "tssr", "tssr2"))
-
+names(mods) <- 0:29
+modnames <- list(
+  "0"=c("(Intercept)"),
+  "1"=c("(Intercept)", "jday"),
+  "2"=c("(Intercept)", "tssr"),
+  "3"=c("(Intercept)", "jday", "jday2"),
+  "4"=c("(Intercept)", "tssr", "tssr2"),
+  "5"=c("(Intercept)", "jday", "tssr"),
+  "6"=c("(Intercept)", "jday", "jday2", "tssr"),
+  "7"=c("(Intercept)", "jday", "tssr", "tssr2"),
+  "8"=c("(Intercept)", "jday", "jday2", "tssr", "tssr2"),
+  "9"=c("(Intercept)", "tsg"),
+  "10"=c("(Intercept)", "tsg", "tsg2"),
+  "11"=c("(Intercept)", "tsg", "tssr"),
+  "12"=c("(Intercept)", "tsg", "tsg2", "tssr"),
+  "13"=c("(Intercept)", "tsg", "tssr", "tssr2"),
+  "14"=c("(Intercept)", "tsg", "tsg2", "tssr", "tssr2"),
+  "15"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM"),
+  "16"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday"),
+  "17"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tssr"),
+  "18"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "jday2"),
+  "19"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tssr", "tssr2"),
+  "20"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "tssr"),
+  "21"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "jday2", "tssr"),
+  "22"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "tssr", "tssr2"),
+  "23"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "jday2", "tssr", "tssr2"),
+  "24"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg"),
+  "25"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tsg2"),
+  "26"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tssr"),
+  "27"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tsg2", "tssr"),
+  "28"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tssr", "tssr2"),
+  "29"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tsg2", "tssr", "tssr2"))
 
 #2. Load data----
 load(file.path(root, "Data/qpadv4_clean.Rdata"))
 
 #Set factor levels
 visit$tagMethod <- factor(visit$tagMethod, levels=c("PC", "ARU-1SPT", "ARU-1SPM"))
-visit$sensor <- factor(visit$sensor, levels=c("PC", "ARU"))
+#visit$sensor <- factor(visit$sensor, levels=c("PC", "ARU"))
 
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out duration methods that aren't appropriate for removal modelling (only have 1 time bin)
@@ -156,7 +115,7 @@ spp <- species %>%
 
 #5. Set up loop for species----
 avail <- list()
-for(i in 18:nrow(spp)){
+for(i in 156:nrow(spp)){
 
     #6. Filter abundance data for species---
     # filter out observations with unknown duration method or interval
@@ -196,9 +155,10 @@ for(i in 18:nrow(spp)){
                           !is.na(tsg),
                           !is.na(jday),
                           !is.na(tagMethod),
+                          tagMethod!="ARU-None",
                           durationMethod %in% durdesign$durationMethod) %>%
             arrange(id) %>%
-            dplyr::select(id, durationMethod, sensor, tagMethod, year, jday, tssr, tsg)
+            dplyr::select(id, durationMethod, tagMethod, year, jday, tssr, tsg)
 
         #9. Create design matrix----
         d <- x %>%
@@ -226,78 +186,7 @@ for(i in 18:nrow(spp)){
             y[j, indices] <- NA
         }
         
-        #12. Determine model set----
-        #Based on AIC, # of samples, # of methods, a few filters for unreasonable estimates
-        n <- data.frame(table(x$sensor)) %>% 
-          rbind(data.frame(table(x$tagMethod)))
-        
-        #set mods to mull
-        mods <- NULL
-        
-        #Run method models
-        mod.null <- try(cmulti(y | d ~ 1, x, type="rem"))
-        mod.sensor <- try(cmulti(y | d ~ sensor, x, type="rem"))
-        mod.method <- try(cmulti(y | d ~ tagMethod, x, type="rem"))
-        
-        #If all three models run
-        if(class(mod.sensor)!="try-error" & class(mod.method)!="try-error" & class(mod.null)!="try-error"){
-          
-          #Conditions for using method model----
-          if((AIC(mod.method) < AIC(mod.sensor)) &
-             (AIC(mod.method) < AIC(mod.null)) &
-             length(unique(x$tagMethod))==3 &
-             (min(n$Freq) >= 5) &
-             (nrow(x) >= 75)){
-            
-            mods <- mods.3
-            modnames <- modnames.3
-          }
-          
-          #Conditions for using sensor model----
-          if((AIC(mod.method) >= AIC(mod.sensor)) &
-             (AIC(mod.sensor) < AIC(mod.null)) &
-             (min(n$Freq) >= 5) &
-             (nrow(x) >= 75)){
-            
-            mods <- mods.2
-            modnames <- modnames.2
-          }
-          
-          #species for which the method model gives an unrealistically high estimate
-          if(exp(sum(mod.method$coefficients[[1]], mod.method$coefficients[[3]])) > 3){
-            mods <- mods.2
-            modnames <- modnames.2
-          }
-        }
-        
-        #If the sensor model doesn't run or there isn't enough data
-        if(class(mod.method)=="try-error" & class(mod.method)!="try-error" & class(mod.null)!="try-error"){
-          
-          #Conditions for using method model----
-          if((AIC(mod.sensor) > AIC(mod.null)) &
-             length(unique(x$tagMethod))==2 &
-             (min(n$Freq) >= 5) &
-             (nrow(x) >= 75)){
-            
-            mods <- mods.2
-            modnames <- modnames.2
-            
-          }
-          
-          #species for which the method model gives an unrealistically low estimate
-          if(exp(mod.method$coefficients[[1]]) < 0.01){
-            mods <- mods.1
-            modnames <- modnames.1
-          }
-        }
-        
-        #Use the mull model for everything else
-        if(is.null(mods)){
-          mods <- mods.1
-          modnames <- modnames.1
-        }
-
-        #13. Fit models----
+        #12. Fit models----
         #Save a bunch of metadata like sample size and aic value
         mod.list <- list()
         for (j in 1:length(mods)) {
@@ -313,7 +202,7 @@ for(i in 18:nrow(spp)){
           mod.list[[names(modnames)[j]]] <- rmvl
         }
         
-        #14. Save model results to species list---
+        #13. Save model results to species list---
         avail[[i]] <- mod.list
         
     }
@@ -324,5 +213,5 @@ for(i in 18:nrow(spp)){
 
 names(avail) <- spp$species
 
-#15. Save out results----
+#14. Save out results----
 save(durdesign, avail, file=file.path(root, "Results/availability.Rdata")) 
