@@ -325,6 +325,9 @@ bamcoefs <- list(spp=spp,
                  version=version)
 .BAMCOEFS4 <- list2env(bamcoefs)
 
+#21. Save for internal evaluation----
+#for internal evaluation
 save(.BAMCOEFS4, file=file.path(root, "Results/BAMCOEFS_QPAD_v4.rda"))
-toDump <- as.list(.BAMCOEFS4)
-dump("toDump", file=file.path(root, "Results/BAMCOEFS_QPAD_v4.Rdump"))
+
+#to QPAD package
+saveRDS(bamcoefs, file="C:/Users/Elly Knight/Documents/BAM/Projects/QPAD/QPAD/inst/estimates/QPAD_v4.rds")
