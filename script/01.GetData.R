@@ -5,6 +5,8 @@
 # updated: "November 6, 2022"
 # ---
 
+#TO DO: UPDATE EVERYTHING TO COV NAMES IN PREVIOUS QPAD VERSIONS####
+
 #NOTES################################
 
 #QPAD V4 and the National models V4.1 were updated concurrently and use the same base dataset. The following code is similar to the code for the national models and the data is stored in the national models folder on Google Drive
