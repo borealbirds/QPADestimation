@@ -19,11 +19,28 @@ library(downloader) #download region file
 #2. Set root path for data on google drive----
 root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/"
 
+#A. CLEAN VISIT DATA####################
+
 #1. Load in new dataset----
-load(file.path(root, "/qpadv4_raw.Rdata"))
+load(file.path(root, "wildtrax_raw_2023-01-20.Rdata"))
+
+#2. Subset to columns of interest----
+
+colnms <- c("project", "sensor", "location", "buffer", "lat", "lon", "year", "date", "observer", "ARUMethod", "durationMethod", "distanceMethod", "species", "abundance", "individual", "durationInterval", "distanceBand", "tagStart", "isHeard", "isSeen")
+
+use <- raw.wt %>% 
+  dplyr::select(-observer) %>% 
+  rename(species = speciesCode, lat = latitude, lon = longitude, individual = individual_appearance_order, ARUMethod = method, tagStart = tag_start_s, observer = observer_id) %>% 
+  full_join(projects %>% 
+              rename(sensor = sensorId) %>% 
+              dplyr::select(project_id, project, sensor)) %>% 
+  mutate(date = ymd_hms(date),
+         year = year(date)) %>% 
+  dplyr::select(all_of(colnms)) %>% 
+  mutate(id = paste(project, location, lat, lon, observer, date, ARUMethod)) %>% 
+  dplyr::filter(!is.na(date))
 
 #2. Wrangle duration method----
-#Remove surveys with "none" method
 #Remove surveys that are not a factor of 60s
 #Remove tags that are after the indicated duration
 #create combination of sensor and tagmethod
@@ -59,13 +76,12 @@ method <- use %>%
 #Standardize sig figs for location to remove duplicates
 #Remove outliers for day of year (use 99% quantile)
 #Take out BBS because isn't useful for removal or distance sampling
-#Remove singlesp datasets & none tag methods
+#Remove none tag methods
 dat <- method %>%
   dplyr::filter(!is.na(date),
                 project!="BAM-BBS",
-                singlesp=="n",
                 tagMethod!="None") %>% 
-    dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod) %>%
+    dplyr::select(id, project, sensor, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod) %>%
     mutate(lat = round(lat, 5),
            lon = round(lon, 5),
            buffer = ifelse(is.na(buffer), 0, buffer),
@@ -87,9 +103,9 @@ temporal <- dat %>%
            start_time = hour(datetime) + minute(datetime)/60) %>%
     dplyr::filter(year > 1900)
 
-#check BAM dataset distribution against WT for time zone issues
+#check distribution against for time zone issues
 ggplot(temporal) +
-  geom_histogram(aes(x=start_time, fill=source))
+  geom_histogram(aes(x=start_time, fill=sensor))
 #looks OK
 
 #5. Get sunrise time----
@@ -105,11 +121,11 @@ sun$hssr <- as.numeric(difftime(sun$datetime, sun$sunrise), units="hours")
 #6a. Download data
 temp <- tempfile()
 download("https://birdscanada.org/download/gislab/bcr_terrestrial_shape.zip", temp)
-unzip(zipfile=temp, exdir=root)
+unzip(zipfile=temp, exdir=file.path(root, "gis"))
 unlink(temp)
 
 #6b.Read in & wrangle shapefile
-bcrshp <- read_sf("gis/BCR_Terrestrial/BCR_Terrestrial_master.shp") %>%
+bcrshp <- read_sf(file.path(root, "gis", "BCR_Terrestrial/BCR_Terrestrial_master.shp")) %>%
     dplyr::select(BCR, PROVINCE_S, COUNTRY) %>%
     rename(bcr = BCR, province = PROVINCE_S, country=COUNTRY) %>%
     dplyr::filter(country %in% c("USA", "CANADA")) %>%
@@ -213,7 +229,77 @@ visit <- covariates %>%
     dplyr::filter(methodlength == max(methodlength)) %>% 
     sample_n(1) %>% 
   ungroup() %>% 
-  dplyr::select(id, source, project, sensor, singlesp, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod, jday, hssr, tssr, seedgrow, tsg, bcr, province, country, tree, lcc2, lcc4)
+  dplyr::select(id, project, sensor, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod, jday, hssr, tssr, seedgrow, tsg, bcr, province, country, tree, lcc2, lcc4)
 
-#9. Save----
-save(visit, file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_visit.Rdata")
+#B. CLEAN BIRD DATA################
+
+#1. Filter, tidy, create foreign key for visit table----
+#Ensure there's visit data
+#Remove UNSPs
+#Remove records without abundance
+#Replace GRAJ with CAJA
+#Remove records with auditory detections
+dat <- use %>% 
+  dplyr::filter(str_sub(species, 1, 2)!="UN",
+                id %in% visit$id,
+                !is.na(abundance),
+                !abundance %in% c("CI 1", "CI 2", "CI 3", "N/A", "0", ""),
+                !isHeard %in% c("f", "no", "No")) %>% 
+  mutate(species = ifelse(species=="GRAJ", "CAJA", species))
+
+#2. Filter to just first detection per individual and bin in minutes----
+#bin in 30 s bins for 60 s surveys
+#Fill in distance & duration method from visit object
+first <- dat %>%
+  dplyr::filter(sensor=="ARU") %>% 
+  dplyr::select(-distanceMethod, -durationMethod) %>% 
+  left_join(visit %>% 
+              dplyr::select(id, distanceMethod, durationMethod, tagMethod)) %>%
+  group_by(id, project, sensor, location, buffer, lat, lon, year, date,  observer, species, abundance, individual, isSeen, isHeard) %>% 
+  mutate(firstTag = min(tagStart)) %>%
+  ungroup() %>%
+  dplyr::filter(tagStart == firstTag) %>% 
+  mutate(end=ifelse(durationMethod=="0-0.5-1min", ceiling(tagStart/30), ceiling(tagStart/60)),
+         end = ifelse(end==0, 1, end),
+         durationInterval = case_when(durationMethod=="0-0.5-1min" & end==1 ~ "0-0.5min",
+                                      durationMethod=="0-0.5-1min" & end==2 ~ "0.5-1min",
+                                      !is.na(durationMethod) ~ paste0(end-1, "-", end, "min")),
+         distanceBand = "UNKNOWN") %>% 
+  dplyr::select(c(colnames(dat), tagMethod)) %>% 
+  rbind(dat %>% 
+          dplyr::filter(sensor=="PC" & distanceMethod!="0m-INF-ARU") %>% 
+          mutate(tagMethod="PC")) %>%
+  rbind(dat %>% 
+          dplyr::filter(sensor=="PC" & distanceMethod=="0m-INF-ARU") %>% 
+          mutate(tagMethod="ARU-1SPT")) %>% 
+  dplyr::select(id, project, sensor, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod, distanceBand, durationInterval, species, abundance, isSeen, isHeard)
+
+#3. Replace TMTTs with predicted abundance----
+tmtt <- read.csv("C:/Users/Elly Knight/Documents/ABMI/Projects/Wildtrax/TMTT/data/tmtt_predictions_mean.csv") %>% 
+  rename(species = species_code, observer = observer_id)
+
+bird <- first %>% 
+  dplyr::filter(abundance=="TMTT") %>% 
+  mutate(species = ifelse(species %in% tmtt$species, species, "species"),
+         observer = as.integer(ifelse(observer %in% tmtt$observer, observer, 0))) %>% 
+  data.frame() %>% 
+  left_join(tmtt) %>% 
+  mutate(abundance = round(pred)) %>% 
+  dplyr::select(colnames(first)) %>% 
+  rbind(first %>% 
+          dplyr::filter(abundance!="TMTT") %>% 
+          mutate(abundance = as.numeric(abundance))) 
+
+#B. PACKAGE AND SAVE###########################
+
+#1. Rename to match QPAD V3-----
+visit <- visit %>% 
+  rename(TSSR = tssr, JDAY = jday, DSLS = tsg, LCC2 = lcc2, LCC4 = lcc4, TREE = tree)
+
+#2. Add species list----
+species <- read.csv(file.path(root, "lookups", "singing-species.csv")) %>%
+  rename(species = Species_ID)
+
+#3. Save----
+save(visit, bird, species,  file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_clean.Rdata")
+
