@@ -13,6 +13,8 @@ options(dplyr.summarise.inform = FALSE, scipen=9999)
 
 root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
 
+#TO DO: TAKE OUT RECORDS WITH DUMMY ENTRY FOR TIME AND DATE
+
 #1. Create list of models----
 #jday = day of year as a decimal between 0 and 1
 #tssr = time since sunrise as a decimal between 0 and 1
