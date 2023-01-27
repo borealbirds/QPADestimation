@@ -14,19 +14,19 @@ root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive
 #1. Create list of models----
 mods <- list(
     ~ 1,
-    ~ tree,
-    ~ lcc2,
-    ~ lcc4,
-    ~ lcc2 + tree,
-    ~ lcc4 + tree)
+    ~ TREE,
+    ~ LCC2,
+    ~ LCC4,
+    ~ LCC2 + TREE,
+    ~ LCC4 + TREE)
 names(mods) <- 0:5
 modnames <- list(
     "0"="(Intercept)",
-    "1"=c("(Intercept)", "tree"),
-    "2"=c("(Intercept)", "lcc2OpenWet"),
-    "3"=c("(Intercept)", "lcc4Conif", "lcc4Open", "lcc4Wet"),
-    "4"=c("(Intercept)", "lcc2OpenWet", "tree"),
-    "5"=c("(Intercept)", "lcc4Conif", "lcc4Open", "lcc4Wet", "tree"))
+    "1"=c("(Intercept)", "TREE"),
+    "2"=c("(Intercept)", "LCC2OpenWet"),
+    "3"=c("(Intercept)", "LCC4Conif", "LCC4Open", "LCC4Wet"),
+    "4"=c("(Intercept)", "LCC2OpenWet", "TREE"),
+    "5"=c("(Intercept)", "LCC4Conif", "LCC4Open", "LCC4Wet", "TREE"))
 
 #2. Load data----
 load(file.path(root, "Data/qpadv4_clean.Rdata"))
@@ -80,14 +80,14 @@ for(i in 1:nrow(spp)){
         #Remove nas
         x <- visit %>%
             dplyr::filter(id %in% unique(bird.i$id),
-                          !is.na(tree),
-                          !is.na(lcc2),
-                          !is.na(lcc4),
-                          lcc2!="",
-                          lcc4!="",
+                          !is.na(TREE),
+                          !is.na(LCC2),
+                          !is.na(LCC4),
+                          LCC2!="",
+                          LCC4!="",
                           buffer < 1000) %>% 
             arrange(id) %>%
-            dplyr::select(id, distanceMethod, tree, lcc2, lcc4)
+            dplyr::select(id, distanceMethod, TREE, LCC2, LCC4)
 
         #9. Create design matrix----
         d <- x %>%

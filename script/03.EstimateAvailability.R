@@ -16,80 +16,81 @@ root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive
 #TO DO: TAKE OUT RECORDS WITH DUMMY ENTRY FOR TIME AND DATE
 
 #1. Create list of models----
-#jday = day of year as a decimal between 0 and 1
-#tssr = time since sunrise as a decimal between 0 and 1
-#tsg = days since start of seedgrowth from seedgrow layers
+#JDAY = day of year as a decimal between 0 and 1
+#TSSR = time since sunrise as a decimal between 0 and 1
+#DSLS = ("datys since local spring") days since start of seedgrowth from seedgrow layers
+#TM = TM ("PC" = point count, "ARU-1SPM" = 1 tag per minute, "ARU-1SPT" = 1 tag per task - ie.e., recording)
 
 #1a. Lists for species that only have data for one method----
 mods <- list(
   ~ 1,
-  ~ jday,
-  ~ tssr,
-  ~ poly(jday, 2),
-  ~ poly(tssr, 2),
-  ~ jday + tssr,
-  ~ poly(jday, 2) + tssr,
-  ~ jday + poly(tssr, 2),
-  ~ poly(jday, 2) + poly(tssr, 2),
-  ~ tsg,
-  ~ poly(tsg, 2),
-  ~ tsg + tssr,
-  ~ poly(tsg, 2) + tssr,
-  ~ tsg + poly(tssr, 2),
-  ~ poly(tsg, 2) + poly(tssr, 2),
-  ~ tagMethod,
-  ~ tagMethod + jday,
-  ~ tagMethod + tssr,
-  ~ tagMethod + poly(jday, 2),
-  ~ tagMethod + poly(tssr, 2),
-  ~ tagMethod + jday + tssr,
-  ~ tagMethod + poly(jday, 2) + tssr,
-  ~ tagMethod + jday + poly(tssr, 2),
-  ~ tagMethod + poly(jday, 2) + poly(tssr, 2),
-  ~ tagMethod + tsg,
-  ~ tagMethod + poly(tsg, 2),
-  ~ tagMethod + tsg + tssr,
-  ~ tagMethod + poly(tsg, 2) + tssr,
-  ~ tagMethod + tsg + poly(tssr, 2),
-  ~ tagMethod + poly(tsg, 2) + poly(tssr, 2))
+  ~ JDAY,
+  ~ TSSR,
+  ~ poly(JDAY, 2),
+  ~ poly(TSSR, 2),
+  ~ JDAY + TSSR,
+  ~ poly(JDAY, 2) + TSSR,
+  ~ JDAY + poly(TSSR, 2),
+  ~ poly(JDAY, 2) + poly(TSSR, 2),
+  ~ DSLS,
+  ~ poly(DSLS, 2),
+  ~ DSLS + TSSR,
+  ~ poly(DSLS, 2) + TSSR,
+  ~ DSLS + poly(TSSR, 2),
+  ~ poly(DSLS, 2) + poly(TSSR, 2),
+  ~ TM,
+  ~ TM + JDAY,
+  ~ TM + TSSR,
+  ~ TM + poly(JDAY, 2),
+  ~ TM + poly(TSSR, 2),
+  ~ TM + JDAY + TSSR,
+  ~ TM + poly(JDAY, 2) + TSSR,
+  ~ TM + JDAY + poly(TSSR, 2),
+  ~ TM + poly(JDAY, 2) + poly(TSSR, 2),
+  ~ TM + DSLS,
+  ~ TM + poly(DSLS, 2),
+  ~ TM + DSLS + TSSR,
+  ~ TM + poly(DSLS, 2) + TSSR,
+  ~ TM + DSLS + poly(TSSR, 2),
+  ~ TM + poly(DSLS, 2) + poly(TSSR, 2))
 names(mods) <- 0:29
 modnames <- list(
   "0"=c("(Intercept)"),
-  "1"=c("(Intercept)", "jday"),
-  "2"=c("(Intercept)", "tssr"),
-  "3"=c("(Intercept)", "jday", "jday2"),
-  "4"=c("(Intercept)", "tssr", "tssr2"),
-  "5"=c("(Intercept)", "jday", "tssr"),
-  "6"=c("(Intercept)", "jday", "jday2", "tssr"),
-  "7"=c("(Intercept)", "jday", "tssr", "tssr2"),
-  "8"=c("(Intercept)", "jday", "jday2", "tssr", "tssr2"),
-  "9"=c("(Intercept)", "tsg"),
-  "10"=c("(Intercept)", "tsg", "tsg2"),
-  "11"=c("(Intercept)", "tsg", "tssr"),
-  "12"=c("(Intercept)", "tsg", "tsg2", "tssr"),
-  "13"=c("(Intercept)", "tsg", "tssr", "tssr2"),
-  "14"=c("(Intercept)", "tsg", "tsg2", "tssr", "tssr2"),
-  "15"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM"),
-  "16"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday"),
-  "17"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tssr"),
-  "18"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "jday2"),
-  "19"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tssr", "tssr2"),
-  "20"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "tssr"),
-  "21"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "jday2", "tssr"),
-  "22"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "tssr", "tssr2"),
-  "23"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "jday", "jday2", "tssr", "tssr2"),
-  "24"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg"),
-  "25"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tsg2"),
-  "26"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tssr"),
-  "27"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tsg2", "tssr"),
-  "28"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tssr", "tssr2"),
-  "29"=c("(Intercept)", "tagmethod1SPT", "tagmethod1SPM", "tsg", "tsg2", "tssr", "tssr2"))
+  "1"=c("(Intercept)", "JDAY"),
+  "2"=c("(Intercept)", "TSSR"),
+  "3"=c("(Intercept)", "JDAY", "JDAY2"),
+  "4"=c("(Intercept)", "TSSR", "TSSR2"),
+  "5"=c("(Intercept)", "JDAY", "TSSR"),
+  "6"=c("(Intercept)", "JDAY", "JDAY2", "TSSR"),
+  "7"=c("(Intercept)", "JDAY", "TSSR", "TSSR2"),
+  "8"=c("(Intercept)", "JDAY", "JDAY2", "TSSR", "TSSR2"),
+  "9"=c("(Intercept)", "DSLS"),
+  "10"=c("(Intercept)", "DSLS", "DSLS2"),
+  "11"=c("(Intercept)", "DSLS", "TSSR"),
+  "12"=c("(Intercept)", "DSLS", "DSLS2", "TSSR"),
+  "13"=c("(Intercept)", "DSLS", "TSSR", "TSSR2"),
+  "14"=c("(Intercept)", "DSLS", "DSLS2", "TSSR", "TSSR2"),
+  "15"=c("(Intercept)", "TM1SPT", "TM1SPM"),
+  "16"=c("(Intercept)", "TM1SPT", "TM1SPM", "JDAY"),
+  "17"=c("(Intercept)", "TM1SPT", "TM1SPM", "TSSR"),
+  "18"=c("(Intercept)", "TM1SPT", "TM1SPM", "JDAY", "JDAY2"),
+  "19"=c("(Intercept)", "TM1SPT", "TM1SPM", "TSSR", "TSSR2"),
+  "20"=c("(Intercept)", "TM1SPT", "TM1SPM", "JDAY", "TSSR"),
+  "21"=c("(Intercept)", "TM1SPT", "TM1SPM", "JDAY", "JDAY2", "TSSR"),
+  "22"=c("(Intercept)", "TM1SPT", "TM1SPM", "JDAY", "TSSR", "TSSR2"),
+  "23"=c("(Intercept)", "TM1SPT", "TM1SPM", "JDAY", "JDAY2", "TSSR", "TSSR2"),
+  "24"=c("(Intercept)", "TM1SPT", "TM1SPM", "DSLS"),
+  "25"=c("(Intercept)", "TM1SPT", "TM1SPM", "DSLS", "DSLS2"),
+  "26"=c("(Intercept)", "TM1SPT", "TM1SPM", "DSLS", "TSSR"),
+  "27"=c("(Intercept)", "TM1SPT", "TM1SPM", "DSLS", "DSLS2", "TSSR"),
+  "28"=c("(Intercept)", "TM1SPT", "TM1SPM", "DSLS", "TSSR", "TSSR2"),
+  "29"=c("(Intercept)", "TM1SPT", "TM1SPM", "DSLS", "DSLS2", "TSSR", "TSSR2"))
 
 #2. Load data----
-load(file.path(root, "Data/qpadv4_clean.Rdata"))
+load(file.path(root, "Data", "qpadv4_clean.Rdata"))
 
-#Set factor levels
-visit$tagMethod <- factor(visit$tagMethod, levels=c("PC", "ARU-1SPT", "ARU-1SPM"))
+ #Set factor levels
+visit$TM <- factor(visit$TM, levels=c("PC", "ARU-1SPT", "ARU-1SPM"))
 #visit$sensor <- factor(visit$sensor, levels=c("PC", "ARU"))
 
 #3. Create design lookup table that describes duration method for each protocol----
@@ -117,11 +118,10 @@ spp <- species %>%
 
 #5. Set up loop for species----
 avail <- list()
-for(i in 156:nrow(spp)){
+for(i in 1:nrow(spp)){
 
     #6. Filter abundance data for species---
     # filter out observations with unknown duration method or interval
-    # filter out observations from singlesp datasets
     # filter out observations with "none" tag method
     # filter out observations where interval does not match method
     # filter to observations with covariates
@@ -129,8 +129,7 @@ for(i in 156:nrow(spp)){
         dplyr::filter(species==spp$species[i],
                       durationMethod %in% durdesign$durationMethod,
                       !durationInterval %in% c("UNKNOWN", "before or after/incidental"),
-                      !is.na(tagMethod),
-                      singlesp=="n") %>% 
+                      !is.na(TM)) %>% 
       separate(durationInterval, into=c("start", "end"), sep="-", remove=FALSE, extra="drop", fill="right") %>%
       mutate(start = as.numeric(start),
              end = as.numeric(str_sub(end, -100, -4))) %>%
@@ -153,14 +152,14 @@ for(i in 156:nrow(spp)){
         #Remove records with nas in covariates
         x <- visit %>%
             dplyr::filter(id %in% unique(bird.i$id),
-                          !is.na(tssr),
-                          !is.na(tsg),
-                          !is.na(jday),
-                          !is.na(tagMethod),
-                          tagMethod!="ARU-None",
+                          !is.na(TSSR),
+                          !is.na(DSLS),
+                          !is.na(JDAY),
+                          !is.na(TM),
+                          TM!="ARU-None",
                           durationMethod %in% durdesign$durationMethod) %>%
             arrange(id) %>%
-            dplyr::select(id, durationMethod, tagMethod, year, jday, tssr, tsg)
+            dplyr::select(id, durationMethod, TM, year, JDAY, TSSR, DSLS)
 
         #9. Create design matrix----
         d <- x %>%

@@ -12,7 +12,7 @@ root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive
 load(file.path(root, "Results/availability.Rdata"))
 load(file.path(root, "Results/perceptability.Rdata"))
 load(file.path(root, "Data/qpadv4_clean.Rdata"))
-tax <- read.csv(file.path(root, "Data/taxonomytable.csv"))
+tax <- read.csv(file.path(root, "Data/lookups/taxonomytable.csv"))
 
 #1. Remove species that didn't have enough data----
 resDurOK <- avail[!sapply(avail, length)==0]
@@ -50,18 +50,17 @@ for (spp in rownames(sra_mod)) {
     dplyr::filter(species==spp,
                   durationMethod %in% durdesign$durationMethod,
                   !durationInterval %in% c("UNKNOWN", "before or after/incidental"),
-                  !is.na(tagMethod),
-                  singlesp=="n") %>%
+                  !is.na(TM)) %>%
     dplyr::select(id) %>%
     unique()
   Dat <- visit %>%
     dplyr::filter(id %in% unique(bird.i$id),
-                  !is.na(tssr),
-                  !is.na(tsg),
-                  !is.na(jday),
-                  tagMethod!="ARU-None",
-                  !is.na(tagMethod)) %>%
-    group_by(tagMethod) %>% 
+                  !is.na(TSSR),
+                  !is.na(DSLS),
+                  !is.na(JDAY),
+                  TM!="ARU-None",
+                  !is.na(TM)) %>%
+    group_by(TM) %>% 
     summarize(n=n()) %>% 
     ungroup()
     for (mid in colnames(sra_models)) {
@@ -106,11 +105,11 @@ for (spp in rownames(edr_mod)) {
         unique()
     Dat <- visit %>%
         dplyr::filter(id %in% unique(bird.i$id),
-                      !is.na(tree),
-                      !is.na(lcc2),
-                      !is.na(lcc4)) %>%
+                      !is.na(TREE),
+                      !is.na(LCC2),
+                      !is.na(LCC4)) %>%
         arrange(id) %>%
-        dplyr::select(lcc2, lcc4)
+        dplyr::select(LCC2, LCC4)
     for (mid in colnames(edr_models)) {
         if (!inherits(resDis[[spp]][[mid]], "try-error")) {
             lcf <- length(resDis[[spp]][[mid]]$coefficients)
@@ -120,16 +119,16 @@ for (spp in rownames(edr_mod)) {
                     "( len.coef =", lcf, ", len.name =", lnm, ")\n")
                 edr_models[spp,mid] <- 0
             } else {
-                if (mid %in% c("2", "4") && min(table(Dat$lcc2)) < n.min.class) {
+                if (mid %in% c("2", "4") && min(table(Dat$LCC2)) < n.min.class) {
                     cat("EDR LCC2 min issue for", spp, "model", mid, "\n")
                     edr_models[spp,mid] <- 0
                 }
-                if (mid %in% c("3", "5") && min(table(Dat$lcc4)) < n.min.class) {
+                if (mid %in% c("3", "5") && min(table(Dat$LCC4)) < n.min.class) {
                     cat("EDR LCC4 min issue for", spp, "model", mid, "\n")
                     edr_models[spp,mid] <- 0
                 }
                 if (mid %in% c("1", "4", "5") &&
-                    resDis[[spp]][[mid]]$coefficients["log.tau_tree"] > 0) {
+                    resDis[[spp]][[mid]]$coefficients["log.tau_TREE"] > 0) {
                     cat("EDR TREE > 0 issue for", spp, "model", mid, "\n")
                     edr_models[spp,mid] <- 0
                 }
