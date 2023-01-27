@@ -173,7 +173,7 @@ ggplot(est34) +
   scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
   my.theme
 
-ggsave(filename="figs/ARUvsPC.jpeg", width=8, height=6, units="in")
+#ggsave(filename="figs/ARUvsPC.jpeg", width=8, height=6, units="in")
 
 lm1 <- lm(sra4.aru ~ sra4, data=est34)
 summary(lm1)
@@ -204,3 +204,4 @@ ggplot(est34 %>%
   geom_point(aes(x=edr.n4, y=edr34.abs, colour=edr.n4)) +
   geom_smooth(aes(x=edr.n4, y=edr34.abs)) +
   scale_colour_viridis_c()
+
