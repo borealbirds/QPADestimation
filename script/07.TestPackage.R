@@ -66,14 +66,97 @@ dat <- data.frame(date = c("2019-06-07", "2019-06-17", "2019-06-27"),
                   lat = seq(53, 55, 1),
                   dur = rep(10, 3),
                   dist = rep(100, 3),
-                  tagmeth = rep("PC", 3))
+                  tagmeth = c("PC", "1SPT", "1SPM"))
 
 #6. Make prediction df----
 x <- make_x(dat)
-x
+str(x)
 
 #7. Make offsets----
 spp <- "OVEN"
-meth <- 1
-off <- make_off(spp, x, meth)
-off
+useMeth <- "y"
+o <- make_off(spp, x, useMeth)
+str(o)
+
+#C. TEST README SCRIPT####
+
+setwd("C:/Users/Elly Knight/Documents/BAM/Projects/QPAD/qpad-offsets")
+
+## load packages
+library(QPAD)
+library(maptools)
+library(intrval)
+library(raster)
+
+## load v4 estimates
+load_BAM_QPAD(version = 4)
+if (!getBAMversion() %in% c("3", "4"))
+  stop("This script requires BAM version 3 or version 4")
+
+## read raster data
+rlcc <- raster("./data/lcc.tif")
+rtree <- raster("./data/tree.tif")
+rtz <- raster("./data/utcoffset.tif")
+rd1 <- raster("./data/seedgrow.tif")
+crs <- proj4string(rtree)
+
+## source functions
+source("functions.R")
+
+## dataframe
+dat <- data.frame(date = c("2019-06-07", "2019-06-17", "2019-06-27"),
+                  time = rep("05:20", 3), 
+                  lon = rep(-115, 3),
+                  lat = rep(53, 3),
+                  dur = rep(10, 3), 
+                  dist = rep(100, 3),
+                  tagmeth = rep("PC", 3)) 
+
+## timezone argument
+tz <- "local"
+
+## organize predictors
+x <- make_x(dat, tz)
+str(x)
+# 'data.frame':	3 obs. of  9 variables:
+#  $ TSSR  : num  0.0024 0.0116 0.0173
+#  $ JDAY  : num  0.43 0.458 0.485
+#  $ DSLS  : num  0.11 0.164 0.189
+#  $ LCC2  : Factor w/ 2 levels "Forest","OpenWet": 2 2 1
+#  $ LCC4  : Factor w/ 4 levels "DecidMixed","Conif",..: 3 3 1
+#  $ TREE  : num  0.3 2.55 0.73
+#  $ MAXDUR: num  10 10 10
+#  $ MAXDIS: num  1 1 1
+#  $ TM    : chr  "PC" "1SPT" "1SPM"
+
+## species of interest
+spp <- "OVEN"
+
+## take method into acount
+useMeth <- "y"
+
+o <- make_off(spp, x, useMeth)
+str(o)
+# 'data.frame':	3 obs. of  5 variables:
+#  $ p         : num  0.971 0.96 0.948
+#  $ q         : num  0.58 0.58 0.65
+#  $ A         : num  3.14 3.14 3.14
+#  $ correction: num  1.77 1.75 1.93
+#  $ offset    : num  0.57 0.559 0.66
+
+SPP <- getBAMspecieslist()
+OFF <- matrix(0, nrow(x), length(SPP))
+rownames(OFF) <- rownames(x) # your survey IDs here
+colnames(OFF) <- SPP
+
+for (spp in SPP) {
+  cat(spp, "\n")
+  flush.console()
+  o <- make_off(spp, x, useMeth)
+  OFF[,spp] <- o$offset
+}
+str(OFF)
+# num [1:3, 1:187] -0.0683 -0.0683 -0.0683 -0.01 -0.0111 ...
+# - attr(*, "dimnames")=List of 2
+# ..$ : chr [1:3] "1" "2" "3"
+# ..$ : chr [1:187] "ACFL" "ALFL" "AMCR" "AMGO" ...
