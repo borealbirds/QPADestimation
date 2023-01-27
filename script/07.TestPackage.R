@@ -37,7 +37,7 @@ length(.BAMCOEFS$spp) #151
 rm(.BAMCOEFS)
 
 load_BAM_QPAD(4)
-length(.BAMCOEFS$spp) #182
+length(.BAMCOEFS$spp) #187
 
 #B. TEST qpad-offsets REPO####
 
@@ -60,13 +60,13 @@ crs <- proj4string(rtree)
 source("functions.R")
 
 #5. Make up some data----
-dat <- data.frame(dt = c("2019-06-07", "2019-06-17", "2019-06-27"),
-                  tm = rep("05:20", 3),
+dat <- data.frame(date = c("2019-06-07", "2019-06-17", "2019-06-27"),
+                  time = rep("05:20", 3),
                   lon = seq(-115, -113, 1),
                   lat = seq(53, 55, 1),
                   dur = rep(10, 3),
                   dist = rep(100, 3),
-                  tag = rep("PC", 3))
+                  tagmeth = rep("PC", 3))
 
 #6. Make prediction df----
 x <- make_x(dat)
@@ -74,4 +74,6 @@ x
 
 #7. Make offsets----
 spp <- "OVEN"
-off <- make_off(x)
+meth <- 1
+off <- make_off(spp, x, meth)
+off
