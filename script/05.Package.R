@@ -44,7 +44,8 @@ edr_models[rownames(edr_mod),] <- edr_mod
 
 #4. Check for dropped factor levels & min # of detections within each class for removal models----
 n.min.class <- 5 # min number of detections within each class
-for (spp in rownames(sra_mod)) {
+for (i in 1:length(rownames(sra_mod))) {
+  spp <- rownames(sra_mod)[i]
   ## data for checking detections in classes
   bird.i <- bird %>%
     dplyr::filter(species==spp,
@@ -63,7 +64,8 @@ for (spp in rownames(sra_mod)) {
     group_by(TM) %>% 
     summarize(n=n()) %>% 
     ungroup()
-    for (mid in colnames(sra_models)) {
+  for(j in 1:length(colnames(sra_mod))){
+      mid <- colnames(sra_mod)[j]
         if (!inherits(resDur[[spp]][[mid]], "try-error")) {
             lcf <- length(resDur[[spp]][[mid]]$coefficients)
             lnm <- length(resDur[[spp]][[mid]]$names)
@@ -73,24 +75,24 @@ for (spp in rownames(sra_mod)) {
                 sra_models[spp,mid] <- 0
             }
             else {
-              if (mid %in% colnames(sra_models)[16:30] && min(Dat$n) < n.min.class) {
+              if (mid %in% colnames(sra_mod)[16:30] && min(Dat$n) < n.min.class) {
               cat("Tag method min issue for", spp, "model", mid, "\n")
               sra_models[spp,mid] <- 0
               }
-              if (mid %in% colnames(sra_models)[16:30] && exp(sum(resDur$spp$mid$coefficients[c(1,2)])) > 3){
+              if (mid %in% colnames(sra_mod)[16] && exp(sum(resDur[[i]][[j]]$coefficients[c(1,2)])) > 2){
                 cat("Tag method SPT estimate issue for", spp, "model", mid, "\n")
-                sra_models[spp,mid] <- 0
+                sra_models[spp,c(16:30)] <- 0
               }
-              if (mid %in% colnames(sra_models)[16:30] && exp(sum(resDur$spp$mid$coefficients[c(1,3)])) > 3){
+              if (mid %in% colnames(sra_mod)[16] && exp(sum(resDur[[i]][[j]]$coefficients[c(1,3)])) > 3){
                 cat("Tag method SPM estimate issue for", spp, "model", mid, "\n")
-                sra_models[spp,mid] <- 0
+                sra_models[spp,c(16:30)] <- 0
               }
         } 
       } else {
             resDur[[spp]][[mid]] <- structure("Error", class = "try-error")
         }
         flush.console()
-    }
+  }
 }
 
 #5. Check for dropped factor levels & min # of detections within each class for detectability models----
