@@ -16,7 +16,7 @@
 #1. Update the make_x() and make_off() functions in the functions.R script.
 
 #If model structure is changed, use of this script may also require updating the QPAD package
-#1. 
+#1. Update the 
 
 #A. TEST QPAD PACKAGE####
 
@@ -119,15 +119,15 @@ tz <- "local"
 x <- make_x(dat, tz)
 str(x)
 # 'data.frame':	3 obs. of  9 variables:
-#  $ TSSR  : num  0.0024 0.0116 0.0173
-#  $ JDAY  : num  0.43 0.458 0.485
-#  $ DSLS  : num  0.11 0.164 0.189
-#  $ LCC2  : Factor w/ 2 levels "Forest","OpenWet": 2 2 1
-#  $ LCC4  : Factor w/ 4 levels "DecidMixed","Conif",..: 3 3 1
-#  $ TREE  : num  0.3 2.55 0.73
-#  $ MAXDUR: num  10 10 10
-#  $ MAXDIS: num  1 1 1
-#  $ TM    : chr  "PC" "1SPT" "1SPM"
+#   $ TSSR  : num  0.0024 0.0044 0.0026
+# $ JDAY  : num  0.43 0.458 0.485
+# $ DSLS  : num  0.11 0.137 0.164
+# $ LCC2  : Factor w/ 2 levels "Forest","OpenWet": 2 2 2
+# $ LCC4  : Factor w/ 4 levels "DecidMixed","Conif",..: 3 3 3
+# $ TREE  : num  0.3 0.3 0.3
+# $ MAXDUR: num  10 10 10
+# $ MAXDIS: num  1 1 1
+# $ TM    : chr  "PC" "PC" "PC"
 
 ## species of interest
 spp <- "OVEN"
@@ -138,11 +138,11 @@ useMeth <- "y"
 o <- make_off(spp, x, useMeth)
 str(o)
 # 'data.frame':	3 obs. of  5 variables:
-#  $ p         : num  0.971 0.96 0.948
-#  $ q         : num  0.58 0.58 0.65
-#  $ A         : num  3.14 3.14 3.14
-#  $ correction: num  1.77 1.75 1.93
-#  $ offset    : num  0.57 0.559 0.66
+#   $ p         : num  0.971 0.961 0.949
+# $ q         : num  0.58 0.58 0.58
+# $ A         : num  3.14 3.14 3.14
+# $ correction: num  1.77 1.75 1.73
+# $ offset    : num  0.57 0.56 0.547
 
 SPP <- getBAMspecieslist()
 OFF <- matrix(0, nrow(x), length(SPP))
