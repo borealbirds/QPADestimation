@@ -220,10 +220,9 @@ covariates <- region %>%
 #8. Tidy, create primary key, standardize----
 #select processing method with higher resolution for recordings that are processed twice
 visit <- covariates %>%
-    mutate(tsg = (as.numeric(date)-seedgrow)/365,
+    mutate(tsg = (yday(date)-seedgrow)/365,
            jday = julian/365,
            tssr = hssr/24,
-           tsg = tsg/365,
            methodlength = nchar(durationMethod)) %>%
     group_by(id) %>% 
     dplyr::filter(methodlength == max(methodlength)) %>% 
