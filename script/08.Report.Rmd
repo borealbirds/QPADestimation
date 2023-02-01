@@ -1,0 +1,357 @@
+---
+title: "QPAD version 4 documentation"
+author: "Elly Knight (ecknight@ualberta.ca)"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 2
+  html_document:
+    toc: no
+---
+
+# Introduction
+
+The Boreal Avian Modelling (BAM) Project uses statistical offsets
+to correct for methodology and detectability differences across
+species, projects, and surveys times/locations as
+described in Solymos et al. [1]. We refer to this approach as the *QPAD approach*.
+QPAD version 1 was an internal working version of the parameter estimates.
+QPAD version 2 was published alongside Solymos et al. [1] and its supporting
+information. Since closing the data for this manuscript, more data have
+accumulated from Canada and the United States as part of BAM's point
+count database. QPAD version 3 included a major update of the parameter
+estimates due to an increase in number of surveys, species that
+met sample size requirements, and some of the predictor variables
+as outlined in the following sections. QPAD version 4 includes another increase in the number of surveys and species that met sample size requires, as well as the inclusion of a predictor variable for the type of survey (human point count vs ARU) that allows for users to account for the higher availability for detection of human-transcribed ARU surveys as well as the inclusion of a much larger dataset in the removal modelling. This technical report documents and explains the QPAD version 4 estimates.
+
+### Recommended citation
+
+If using QPAD version 4 estimates, please cite the original paper:
+
+Solymos, P., Matsuoka, S. M., Bayne, E. M., Lele, S. R., Fontaine, P., Cumming, S. G., Stralberg, D., Schmiegelow, F. K. A. and Song, S. J., 2013. Calibrating indices of avian density from non-standardized survey data: making the most of a messy situation. *Methods in Ecology and Evolution* **4**:1047--1058.
+
+and the technical report:
+
+Solymos, P., 2016. QPAD version 4 documentation. Technical Report,
+Boreal Avian Modelling Project,
+URL [http://www.borealbirds.ca/library/index.php/technical_reports](http://www.borealbirds.ca/library/index.php/technical_reports).
+
+# Data
+
+All data available for download from WildTrax (https://www.wildtrax.ca/home) from the point count and ARU sensors was downloaded and stored as a time-stamped raw data object.
+We used 245,810 survey events for time-removal,
+and 298,208 for distance sampling models.
+We originally used data from 211 bird species that were considered
+as 'singing' species, i.e. mostly detected by auditory cues in the Boreal.
+The final number of species (n=187) for which we report parameter estimates
+is different from this number because of varying number of
+detections per species (both considering removal and binned distance design).
+
+We considered the following predictor variables for time-removal sampling:
+
+* `JDAY`: Julian day (based on date of survey, standardized as $x/365$),
+* `TSSR`: hours since local sunrise (based on time of survey, standardized as $x/24$),
+* `DSLS`: days since local spring (based on date of survey relative to 30-year average of the local start of the growing season, standardized as $x/365$),
+* `JDAY2`, `TSSR2`, `DSLS2`: quadratic terms ($x^2$) for the above 3 variables using the poly() function to orthogonal polynomials.
+* `TM`: method of survey. Either "PC" for human point counts, "1SPT" for autonomous recording unit (ARU) data that has been human-transcribed to the first detection per individual, or "1SPM" for ARU data that has been human-transcribed to the first detection per indvidual per minute. See https://www.wildtrax.ca/home/resources/guide/acoustic-data/acoustic-tagging-methods.html for details on ARU tagging methods.
+
+Calculation of `JDAY` and `TSSR` follows Solymos et al. [1]
+and its supporting material,
+see McKenney et al. [2] for `DSLS` variable.
+
+The following model formulae were used as part of the right-hand side of the
+formula interface in the `cmulti` function (using `type = "rem"`):
+
+0. `~ 1`
+1. `~ JDAY`
+2. `~ TSSR`
+3. `~ JDAY + JDAY2`
+4. `~ TSSR + TSSR2`
+5. `~ JDAY + TSSR`
+6. `~ JDAY + JDAY2 + TSSR`
+7. `~ JDAY + TSSR + TSSR2`
+8. `~ JDAY + JDAY2 + TSSR + TSSR2`
+9. `~ DSLS`
+10. `~ DSLS + DSLS2`
+11. `~ DSLS + TSSR`
+12. `~ DSLS + DSLS2 + TSSR`
+13. `~ DSLS + TSSR + TSSR2`
+14. `~ DSLS + DSLS2 + TSSR + TSSR2`
+15. `~ TM`
+16. `~ TM + JDAY`
+17. `~ TM + TSSR`
+18. `~ TM + JDAY2`
+19. `~ TM + TSSR2`
+20. `~ TM + JDAY + TSSR`
+21. `~ TM + JDAY2 + TSSR`
+22. `~ TM + JDAY + TSSR2`
+23. `~ TM + JDAY2 + TSSR2`
+24. `~ TM + DSLS`
+25. `~ TM + DSLS2`
+26. `~ TM + DSLS + TSSR`
+27. `~ TM + DSLS2 + TSSR`
+28. `~ TM + DSLS + TSSR2`
+29. `~ TM + DSLS2 + TSSR2`
+
+Models 0--8 are identical to the removal sampling models used in
+QPAD v2 and described in Solymos et al. [1] and its supporting material.
+Models 9--14 include the new variable `DSLS` and were introduced in QPAD v3. Models 15--29 are identical to models 1--14 but with the inclusion of the survey method `TM` variable.
+
+We considered the same predictor variables as in QPAD v3 for distance sampling:
+
+* `TREE`: tree cover (see [1] for source, standardized to 0--1 range),
+* `LCC2`: land cover as a 4-level factor (`Forest`, `OpenWet` levels) based on the NALCMS land cover product [3],
+* `LCC2`: land cover as a 2-level factor (`DecidMixed`, `Conif`, `Open`, `Wet` levels) based on the NALCMS land cover product [3].
+
+The following reclassification was used to create for `LCC2` and `LCC4` variables from NALCMS:
+
+```{r echo=FALSE}
+root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
+lt <- read.csv(file.path(root, "Data", "lookups", "nalcms.csv"))
+knitr::kable(lt[,-3], row.names = FALSE)
+```
+
+The following model formulae were used as part of the right-hand side of the
+formula interface in the `cmulti` function (using `type = "dis"`):
+
+0. `~ 1`
+1. `~ TREE`
+2. `~ LCC2`
+3. `~ LCC4`
+4. `~ LCC2 + TREE`
+5. `~ LCC4 + TREE`
+
+# Parameter estimates
+
+We used the same general approach as in Solymos et al. [1],
+please consult that for details on method.
+Estimates can be retrieved using the **QPAD** R package [4]. Here is how
+the package can be installed:
+
+```{r eval=FALSE}
+if (!require(devtools))
+    install.packages("devtools")
+library(devtools)
+install_github("borealbirds/QPAD@dev-v4", force=TRUE)
+```
+
+After the package is installed, one can load the estimates. Version 2, 3, or 4
+need to be explicitly specified, there is no default version defined.
+If the version is not defined as part of the call, the function will ask
+it interactively.
+
+```{r}
+library(QPAD)
+load_BAM_QPAD(version = 4)
+```
+
+```{r echo=FALSE,message=FALSE,results='hide'}
+v3 <- new.env()
+source(system.file(paste0("estimates/QPAD_v3.R"), package = "QPAD"), local = v3)
+v4 <- new.env()
+source(system.file(paste0("estimates/QPAD_v4.R"), package = "QPAD"), local = v4)
+source(system.file(paste0("estimates/QPAD_v4.R"), package = "QPAD"))
+new_spp <- setdiff(rownames(.BAMCOEFS$spp_table), rownames(v3$.BAMCOEFS$spp_table))
+new_spp <- new_spp[new_spp != "CAJA"]
+library(knitr)
+kable(.BAMCOEFS$spp_table[,-1])
+f <- function(i) {
+    cat(i, ". ",
+        as.character(.BAMCOEFS$spp_table[i,3]), " (*",
+        as.character(.BAMCOEFS$spp_table[i,2]), "*, ",
+        as.character(.BAMCOEFS$spp_table[i,1]), ")",
+        if (rownames(.BAMCOEFS$spp_table)[i] %in% new_spp) "*\n" else "\n",
+        sep="")
+}
+nsra3 <- v3$.BAMCOEFS$sra_n
+nsra4 <- v4$.BAMCOEFS$sra_n
+nedr3 <- v3$.BAMCOEFS$edr_n
+nedr4 <- v4$.BAMCOEFS$edr_n
+names(nsra3)[names(nsra3) == "GRAJ"] <- "CAJA"
+names(nedr3)[names(nedr3) == "GRAJ"] <- "CAJA"
+join_spp <- intersect(names(nsra3), names(nsra4))
+
+plot(nsra3[join_spp]/1000, nsra4[join_spp]/1000)
+abline(0,1)
+plot(nedr3[join_spp]/1000, nedr4[join_spp]/1000)
+abline(0,1)
+summary(nedr4[join_spp] - nedr3[join_spp])
+summary(nsra4[join_spp] - nsra3[join_spp])
+summary(100 * nedr4[join_spp] / nedr3[join_spp])
+summary(100 * nsra4[join_spp] / nsra3[join_spp])
+
+```
+
+QPAD v3 included results for `r length(v3$.BAMCOEFS$spp)`,
+v4 includes results for `r length(v4$.BAMCOEFS$spp)`.
+As part of QPAD v4, we are providing parameter estimates for the
+following bird species (* indicates the
+`r length(v4$.BAMCOEFS$spp) - length(v3$.BAMCOEFS$spp)`
+species that were not part of QPAD v3
+species list):
+
+```{r echo=FALSE,message=FALSE,results='asis'}
+for (i in 1:nrow(.BAMCOEFS$spp_table)) {
+    f(i)
+}
+```
+
+Sample sizes have increased by
+`r round(mean(-100 + 100 * nsra4[join_spp] / nsra3[join_spp]), 1)`% for time-removal, and
+`r round(mean(-100 + 100 * nedr4[join_spp] / nedr3[join_spp]), 1)`% for distance-sampling
+models across the species that were included in both versions.
+
+```{r dev='png',fig.height=4,echo=FALSE,results='hide',message=FALSE}
+op <- par(mfrow=c(1,2))
+plot(nsra3[join_spp]/1000, nsra4[join_spp]/1000,
+     xlab="Version 3 (x1000)",
+     ylab="Version 4 (x1000)",
+     main="Time-removal sample sizes",
+     xlim=c(0, max(nsra3, nsra4)/1000), ylim=c(0, max(nsra3, nsra4)/1000))
+tmp <- nsra4[!(names(nsra4) %in% join_spp)]
+points(rep(0, length(tmp)), tmp/1000, col = 2, pch=21)
+abline(0,1, lty=2, col="lightblue")
+abline(lm(nsra4[join_spp] ~ nsra3[join_spp] - 1), lty=1, col="lightblue")
+plot(nedr3[join_spp]/1000, nedr4[join_spp]/1000,
+     xlab="Version 3 (x1000)",
+     ylab="Version 4 (x1000)",
+     main="Distance sampling sample sizes",
+     xlim=c(0, max(nedr3, nedr4)/1000), ylim=c(0, max(nedr3, nedr4)/1000))
+tmp <- nedr4[!(names(nedr4) %in% join_spp)]
+points(rep(0, length(tmp)), tmp/1000, col = 2, pch=21)
+abline(0,1, lty=2, col="lightblue")
+abline(lm(nedr4[join_spp] ~ nedr3[join_spp] - 1), lty=1, col="lightblue")
+legend("bottomright", bty="n", pch=21, col=c(1,2), legend=c("v3 and v4","v4 only"))
+par(op)
+```
+
+The specification of survey method as human point count or ARU survey and transcription method for ARU survey shows the increase in availability for detection that ARU surveys provide. We strongly recommend including this information using the `useMeth` arguent of the `make_off()` function when calculating offsets with the qpad-offsets repository [https://github.com/borealbirds/qpad-offsets](https://github.com/borealbirds/qpad-offsets).
+
+```{r echo=FALSE,message=FALSE,results='hide'}
+v3 <- new.env()
+source(system.file(paste0("estimates/QPAD_v3.R"), package = "QPAD"), local = v3)
+v4 <- new.env()
+source(system.file(paste0("estimates/QPAD_v4.R"), package = "QPAD"), local = v4)
+library(tidyverse)
+spp3 <- v3$.BAMCOEFS$spp
+est3 <-data.frame()
+for(i in 1:length(spp3)){
+    sra3 <- exp(v3$.BAMCOEFS$sra_estimates[[i]]$`0`$coefficients)
+    edr3 <- exp(v3$.BAMCOEFS$edr_estimates[[i]]$`0`$coefficients)
+    est3 <- rbind(est3,
+                  data.frame(sra3=sra3, edr3=edr3, species=spp3[i]))
+}
+rownames(est3) <- NULL
+est3 <- est3 %>% 
+  mutate(species = ifelse(species=="GRAJ", "CAJA", species))
+
+spp4 <- v4$.BAMCOEFS$spp
+est4 <-data.frame()
+for(i in 1:length(spp4)){
+  
+    sra4 <- exp(v4$.BAMCOEFS$sra_estimates[[i]]$`0`$coefficients[1])
+    if(v4$.BAMCOEFS$sra_models[[i,"15"]]==1){
+      sra4.pc <- exp(v4$.BAMCOEFS$sra_estimates[[i]]$'15'$coefficients[[1]])
+      sra4.spt <- exp(sum(v4$.BAMCOEFS$sra_estimates[[i]]$`15`$coefficients[c(1,2)]))
+      sra4.spm <- exp(sum(v4$.BAMCOEFS$sra_estimates[[i]]$`15`$coefficients[c(1,3)]))
+    }
+    else{
+      sra4.pc <- NA
+      sra4.spt <- NA
+      sra4.spm <- NA
+    }
+    edr4 <- exp(v4$.BAMCOEFS$edr_estimates[[i]]$`0`$coefficients)
+    est4 <- rbind(est4,
+                  data.frame(sra4=sra4, sra4.spt=sra4.spt, sra4.spm=sra4.spm, sra4.pc=sra4.pc, edr4=edr4, species=spp4[i]))
+}
+rownames(est4) <- NULL
+
+est34 <- full_join(est3, est4) %>%
+    mutate(edr3 = ifelse(is.na(edr3), 0, edr3),
+           sra3 = ifelse(is.na(sra3), 0, sra3),
+           edr4 = ifelse(is.na(edr4), 0, edr4),
+           sra4 = ifelse(is.na(sra4), 0, sra4),
+           sra4.spt = ifelse(is.na(sra4.spt), 0, sra4.spt),
+           sra4.spm = ifelse(is.na(sra4.spm), 0, sra4.spm),
+           sra4.pc = ifelse(is.na(sra4.pc), 0, sra4.pc)) %>%
+    mutate(version = case_when(edr3==0 ~ "V4",
+                               edr4==0 ~ "V3",
+                               !is.na(edr4) ~ "Both"))
+
+```
+
+
+```{r dev='png',fig.height=4,echo=FALSE,results='hide',message=FALSE}
+op <- par(mfrow=c(1,2))
+plot(est34$sra4.pc, est34$sra4.spt,
+     xlab="Point count availability estimate",
+     ylab="ARU-1SPT availability estimate",
+     main="Effect of ARU-1SPT method on availability",
+     ylim=c(0,3))
+abline(0,1, lty=2, col="lightblue")
+abline(lm(est34$sra4.spt ~ est34$sra4.pc - 1), lty=1, col="lightblue")
+plot(est34$sra4.pc, est34$sra4.spm,
+     xlab="Point count availability estimate",
+     ylab="ARU-1SPM availability estimate",
+          main="Effect of ARU-1SPM method on availability",
+     ylim=c(0,3))
+abline(0,1, lty=2, col="lightblue")
+abline(lm(est34$sra4.spm ~ est34$sra4.pc - 1), lty=1, col="lightblue")
+par(op)
+```
+
+
+Here is how one can visualize the results for a given species
+(here Canada Warbler, `CAWA`) and a given version depending on
+what was specified as part of the `load_BAM_QPAD` call.
+(Note: loading a different version overwrites the estimates.)
+
+```{r dev='png',fig.height=7}
+load_BAM_QPAD(version = 3)
+plot_BAM_QPAD("CAWA", type="AIC")
+```
+
+The plots show result summaries for time-removal models (left)
+and distance sampling (right).
+The top row shows model selection results for model candidates.
+The middle row depicts constant singing rate as a function of sampling duration (left) and constant detection distance based distance-decay function (right). Separate lines for each method are predicted for singing rate if the best supported time-removal model includes human point count vs ARU tag method.
+The bottom row shows the date/time relationship for probability
+of availability based on best supported time-removal model (left), and tree cover vs. land cover relationship based on best supported distance sampling model (right).
+
+We can plot the updated v4 results for the species, to compare sample sizes, model support, general relationships between different versions, and the effect of inclusion of method on availability (note: some species' results might not be available in v3).
+Sample sizes for time-removal and distance sampling can be different because the conditional maximum likelihood estimation uses different observations depending on methodologies (i.e. availability of multiple duration or distance intervals in a given survey).
+
+```{r dev='png',fig.height=7}
+load_BAM_QPAD(version = 4)
+plot_BAM_QPAD("CAWA", type="AIC")
+```
+
+A general and thorough comparison of the results from the different versions is
+outside of the scope of this report, but it can be performed using
+the **QPAD** R package. The R functions and their usage described
+in the supporting information for Solymos et al. [1] are available as part of the
+**QPAD** package. Please refer to the Appendices of this report
+for technical details of parameter estimation and offset calculation.
+
+# Acknowledgements
+
+This work is a contribution of the Boreal Avian Modelling (BAM) Project, an
+international research collaboration on the ecology, management, and conservation of boreal birds.
+We acknowledge the BAM Project's members, avian and biophysical data partners,
+and funding agencies
+(including Environment Canada and the U.S. Fish &amp; Wildlife Service),
+listed in full at
+[www.borealbirds.ca/index.php/acknowledgements](www.borealbirds.ca/index.php/acknowledgements).
+
+# References
+
+[1] Solymos, P., Matsuoka, S. M., Bayne, E. M., Lele, S. R., Fontaine, P., Cumming, S. G., Stralberg, D., Schmiegelow, F. K. A. and Song, S. J., 2013. Calibrating indices of avian density from non-standardized survey data: making the most of a messy situation. *Methods in Ecology and Evolution* **4**:1047--1058.
+
+[2] McKenney, D., Price, D., Papadapol, P., Siltanen, M., and Lawrence, K., 2006. High-resolution climate change scenarios for North America. Frontline Forestry Research Applications, Canadian Forest Service, Sault Ste. Marie, Technical Note No. 107. 5 pp.
+
+[3] North American Land Change Monitoring System, URL [http://landcover.usgs.gov/nalcms.php](http://landcover.usgs.gov/nalcms.php).
+
+[4] QPAD R package: Calibrating indices of avian density from non-standardized survey data, GitHub repository: [https://github.com/borealbirds/QPAD](https://github.com/borealbirds/QPAD).
+
+The code for estimating QPAD V4 is in a Github repository called `QPADestimation` under the borealbirds organization: [https://github.com/borealbirds/QPADestimation] (https://github.com/borealbirds/QPADestimation). The code illustrates the process, but is not reproducible without the data itself.
