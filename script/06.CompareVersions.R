@@ -111,15 +111,17 @@ for(i in 1:length(spp4)){
     sra4 <- exp(.BAMCOEFS4$sra_estimates[[i]]$`0`$coefficients[1])
     if(.BAMCOEFS4$sra_models[[i,"15"]]==1){
       sra4.pc <- exp(.BAMCOEFS4$sra_estimates[[i]]$'15'$coefficients[[1]])
-      sra4.aru <- exp(sum(.BAMCOEFS4$sra_estimates[[i]]$`15`$coefficients[c(1,2)]))
+      sra4.spt <- exp(sum(.BAMCOEFS4$sra_estimates[[i]]$`15`$coefficients[c(1,2)]))
+      sra4.spm <- exp(sum(.BAMCOEFS4$sra_estimates[[i]]$`15`$coefficients[c(1,3)]))
     }
     else{
       sra4.pc <- NA
-      sra4.aru <- NA
+      sra4.spt <- NA
+      sra4.spm <- NA
     }
     edr4 <- exp(.BAMCOEFS4$edr_estimates[[i]]$`0`$coefficients)
     est4 <- rbind(est4,
-                  data.frame(sra4=sra4, sra4.aru=sra4.aru, sra4.pc=sra4.pc, edr4=edr4, species=spp4[i]))
+                  data.frame(sra4=sra4, sra4.pc=sra4.pc, sra4.spt=sra4.spt, sra4.spm=sra4.spm, edr4=edr4, species=spp4[i]))
 }
 rownames(est4) <- NULL
 
@@ -128,7 +130,8 @@ est34 <- full_join(est3, est4) %>%
            sra3 = ifelse(is.na(sra3), 0, sra3),
            edr4 = ifelse(is.na(edr4), 0, edr4),
            sra4 = ifelse(is.na(sra4), 0, sra4),
-           sra4.aru = ifelse(is.na(sra4.aru), 0, sra4.aru),
+           sra4.spt = ifelse(is.na(sra4.spt), 0, sra4.spt),
+           sra4.spm = ifelse(is.na(sra4.spm), 0, sra4.spm),
            sra4.pc = ifelse(is.na(sra4.pc), 0, sra4.pc)) %>%
     mutate(version = case_when(edr3==0 ~ "V4",
                                edr4==0 ~ "V3",
@@ -165,8 +168,8 @@ ggplot(est34) +
 
 ggplot(est34) +
   geom_abline(intercept = 0, slope = 1) +
-  geom_point(aes(x=sra4, y=sra4.aru, fill=version), pch=21, alpha = 0.5, size=4) +
-  geom_smooth(aes(x=sra4, y=sra4.aru), method="lm") +
+  geom_point(aes(x=sra4, y=sra4.pc, fill=version), pch=21, alpha = 0.5, size=4) +
+  geom_smooth(aes(x=sra4, y=sra4.pc), method="lm") +
 #  geom_text(aes(x=sra4, y=sra4.aru, label=species)) +
   xlab("V4 point count availability estimate (phi)") +
   ylab("V4 SPT availability estimate (phi)") +
@@ -175,7 +178,7 @@ ggplot(est34) +
 
 #ggsave(filename="figs/ARUvsPC.jpeg", width=8, height=6, units="in")
 
-lm1 <- lm(sra4.aru ~ sra4, data=est34)
+lm1 <- lm(sra4.spt ~ sra4.pc, data=est34)
 summary(lm1)
 
 #5. Sample size vs estimate----
