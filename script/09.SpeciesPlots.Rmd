@@ -1,11 +1,17 @@
 ---
 title: "QPAD version 4 documentation - Species Plots"
 author: "Elly Knight"
-date: "2023-02-01"
-output: html_document
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: pdf_document
 ---
 
-```{r dev='png',fig.height=7}
+# Background
+
+The following report contains output from the 'plot_BAM_QPAD()' function in the **QPAD** package and can be used to visualize the results from the time-removal and distance sampling models available in the **QPAD** package version 4.
+
+The plots show result summaries for time-removal models (left) and distance sampling (right). The top row shows model selection results for model candidates. The middle row depicts constant singing rate as a function of sampling duration (left) and constant detection distance based distance-decay function (right). Separate lines for each method are predicted for singing rate if the best supported time-removal model includes human point count vs ARU tag method. The bottom row shows the date/time relationship for probability of availability based on best supported time-removal model (left), and tree cover vs. land cover relationship based on best supported distance sampling model (right).
+
+```{r echo=FALSE, message=FALSE, results='hide', dev='png', fig.height=9, dpi=300}
 library(QPAD)
 load_BAM_QPAD(version = 4)
 spp <- getBAMspecieslist()

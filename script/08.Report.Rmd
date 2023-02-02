@@ -119,7 +119,7 @@ We used the same general approach as in Solymos et al. [1], please consult that 
 if (!require(devtools))
     install.packages("devtools")
 library(devtools)
-install_github("borealbirds/QPAD@dev-v4", force=TRUE)
+install_github("borealbirds/QPAD", force=TRUE)
 ```
 
 After the package is installed, one can load the estimates. Version 2, 3, or 4 need to be explicitly specified, there is no default version defined. If the version is not defined as part of the call, the function will ask it interactively.
@@ -187,7 +187,7 @@ Sample sizes have increased by
 `r round(mean(-100 + 100 * nedr4[join_spp] / nedr3[join_spp]), 1)`% for distance-sampling
 models across the species that were included in both versions.
 
-```{r dev='png',fig.height=4,echo=FALSE,results='hide',message=FALSE}
+```{r dev='png',fig.height=4,echo=FALSE,results='hide',message=FALSE, dpi=300}
 op <- par(mfrow=c(1,2))
 plot(nsra3[join_spp]/1000, nsra4[join_spp]/1000,
      xlab="Version 3 (x1000)",
@@ -269,7 +269,7 @@ est34 <- full_join(est3, est4) %>%
 ```
 
 
-```{r dev='png',fig.height=4,echo=FALSE,results='hide',message=FALSE}
+```{r dev='png',fig.height=4,dpi=300,echo=FALSE,results='hide',message=FALSE}
 op <- par(mfrow=c(1,2))
 plot(est34$sra4.pc, est34$sra4.spt,
      xlab="Point count availability estimate",
@@ -292,7 +292,7 @@ par(op)
 
 Here is how one can visualize the results for a given species (here Canada Warbler, `CAWA`) and a given version depending on what was specified as part of the `load_BAM_QPAD` call. (Note: loading a different version overwrites the estimates.)
 
-```{r dev='png',fig.height=7}
+```{r dev='png',fig.height=7, dpi=300}
 load_BAM_QPAD(version = 3)
 plot_BAM_QPAD("CAWA", type="BIC")
 ```
@@ -301,7 +301,7 @@ The plots show result summaries for time-removal models (left) and distance samp
 
 We can plot the updated v4 results for the species, to compare sample sizes, model support, general relationships between different versions, and the effect of inclusion of method on availability (note: some species' results might not be available in v3). Sample sizes for time-removal and distance sampling can be different because the conditional maximum likelihood estimation uses different observations depending on methodologies (i.e. availability of multiple duration or distance intervals in a given survey).
 
-```{r dev='png',fig.height=7}
+```{r dev='png',fig.height=7, dpi=300}
 load_BAM_QPAD(version = 4)
 plot_BAM_QPAD("CAWA", type="AIC")
 ```
