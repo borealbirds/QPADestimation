@@ -1,29 +1,21 @@
 ---
 title: "QPAD version 4 documentation"
-author: "Elly Knight (ecknight@ualberta.ca)"
+author: "Elly Knight (ecknight@ualberta.ca), Peter Solymos"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
   pdf_document:
     toc: yes
     toc_depth: 2
-  html_document:
-    toc: no
 ---
 
 # Introduction
 
-The Boreal Avian Modelling (BAM) Project uses statistical offsets
-to correct for methodology and detectability differences across
-species, projects, and surveys times/locations as
-described in Solymos et al. [1]. We refer to this approach as the *QPAD approach*.
+The Boreal Avian Modelling (BAM) Project uses statistical offsets to correct for methodology and detectability differences across species, projects, and surveys times/locations as described in Solymos et al. [1]. We refer to this approach as the *QPAD approach*.
 QPAD version 1 was an internal working version of the parameter estimates.
-QPAD version 2 was published alongside Solymos et al. [1] and its supporting
-information. Since closing the data for this manuscript, more data have
-accumulated from Canada and the United States as part of BAM's point
-count database. QPAD version 3 included a major update of the parameter
-estimates due to an increase in number of surveys, species that
-met sample size requirements, and some of the predictor variables
-as outlined in the following sections. QPAD version 4 includes another increase in the number of surveys and species that met sample size requires, as well as the inclusion of a predictor variable for the type of survey (human point count vs ARU) that allows for users to account for the higher availability for detection of human-transcribed ARU surveys as well as the inclusion of a much larger dataset in the removal modelling. This technical report documents and explains the QPAD version 4 estimates.
+QPAD version 2 was published alongside Solymos et al. [1] and its supporting information. Since closing the data for this manuscript, more data have accumulated from Canada and the United States as part of BAM's point count database and other projects hosted on WildTRax (www.wildtrax.ca).
+QPAD version 3 included a major update of the parameter estimates due to an increase in number of surveys, species that met sample size requirements, and some of the predictor variables
+as outlined in the following sections.
+QPAD version 4 includes another increase in the number of surveys and species that met sample size requires, as well as the inclusion of a predictor variable for the type of survey (human point count vs ARU) that allows for users to account for the higher availability for detection of human-transcribed ARU surveys as well as the inclusion of a much larger dataset in the removal modelling. This technical report documents and explains the QPAD version 4 estimates.
 
 ### Recommended citation
 
@@ -94,9 +86,7 @@ formula interface in the `cmulti` function (using `type = "rem"`):
 28. `~ TM + DSLS + TSSR2`
 29. `~ TM + DSLS2 + TSSR2`
 
-Models 0--8 are identical to the removal sampling models used in
-QPAD v2 and described in Solymos et al. [1] and its supporting material.
-Models 9--14 include the new variable `DSLS` and were introduced in QPAD v3. Models 15--29 are identical to models 1--14 but with the inclusion of the survey method `TM` variable.
+Models 0--8 are identical to the removal sampling models used in QPAD v2 and described in Solymos et al. [1] and its supporting material. Models 9--14 include the new variable `DSLS` and were introduced in QPAD v3. Models 15--29 are identical to models 1--14 but with the inclusion of the categorical survey method `TM` variable.
 
 We considered the same predictor variables as in QPAD v3 for distance sampling:
 
@@ -112,8 +102,7 @@ lt <- read.csv(file.path(root, "Data", "lookups", "nalcms.csv"))
 knitr::kable(lt[,-3], row.names = FALSE)
 ```
 
-The following model formulae were used as part of the right-hand side of the
-formula interface in the `cmulti` function (using `type = "dis"`):
+The following model formulae were used as part of the right-hand side of the formula interface in the `cmulti` function (using `type = "dis"`):
 
 0. `~ 1`
 1. `~ TREE`
@@ -124,10 +113,7 @@ formula interface in the `cmulti` function (using `type = "dis"`):
 
 # Parameter estimates
 
-We used the same general approach as in Solymos et al. [1],
-please consult that for details on method.
-Estimates can be retrieved using the **QPAD** R package [4]. Here is how
-the package can be installed:
+We used the same general approach as in Solymos et al. [1], please consult that for details on method. Estimates can be retrieved using the **QPAD** R package [4]. Here is how the package can be installed:
 
 ```{r eval=FALSE}
 if (!require(devtools))
@@ -136,10 +122,7 @@ library(devtools)
 install_github("borealbirds/QPAD@dev-v4", force=TRUE)
 ```
 
-After the package is installed, one can load the estimates. Version 2, 3, or 4
-need to be explicitly specified, there is no default version defined.
-If the version is not defined as part of the call, the function will ask
-it interactively.
+After the package is installed, one can load the estimates. Version 2, 3, or 4 need to be explicitly specified, there is no default version defined. If the version is not defined as part of the call, the function will ask it interactively.
 
 ```{r}
 library(QPAD)
@@ -172,10 +155,6 @@ names(nsra3)[names(nsra3) == "GRAJ"] <- "CAJA"
 names(nedr3)[names(nedr3) == "GRAJ"] <- "CAJA"
 join_spp <- intersect(names(nsra3), names(nsra4))
 
-plot(nsra3[join_spp]/1000, nsra4[join_spp]/1000)
-abline(0,1)
-plot(nedr3[join_spp]/1000, nedr4[join_spp]/1000)
-abline(0,1)
 summary(nedr4[join_spp] - nedr3[join_spp])
 summary(nsra4[join_spp] - nsra3[join_spp])
 summary(100 * nedr4[join_spp] / nedr3[join_spp])
@@ -183,19 +162,25 @@ summary(100 * nsra4[join_spp] / nsra3[join_spp])
 
 ```
 
-QPAD v3 included results for `r length(v3$.BAMCOEFS$spp)`,
-v4 includes results for `r length(v4$.BAMCOEFS$spp)`.
-As part of QPAD v4, we are providing parameter estimates for the
-following bird species (* indicates the
-`r length(v4$.BAMCOEFS$spp) - length(v3$.BAMCOEFS$spp)`
-species that were not part of QPAD v3
-species list):
+# V4 Improvements
+
+## Species List
+
+You can view the list of species available in QPAD with the 'getBAMspecieslist()' function. QPAD v3 included results for `r length(v3$.BAMCOEFS$spp)`, v4 includes results for `r length(v4$.BAMCOEFS$spp)`. As part of QPAD v4, we are providing parameter estimates for the following `r length(v4$.BAMCOEFS$spp) - length(v3$.BAMCOEFS$spp)` additional bird species:
 
 ```{r echo=FALSE,message=FALSE,results='asis'}
-for (i in 1:nrow(.BAMCOEFS$spp_table)) {
-    f(i)
+newsp <- dplyr::filter(dplyr::setdiff(v4$.BAMCOEFS$spp_table, v3$.BAMCOEFS$spp_table), spp!="CAJA")
+for (i in 1:nrow(newsp)) {
+    cat(i, ". ",
+        as.character(newsp[i,3]), " (*",
+        as.character(newsp[i,2]), "*, ",
+        as.character(newsp[i,1]), ")",
+        "\n",
+        sep="")
 }
 ```
+
+## Sample Sizes
 
 Sample sizes have increased by
 `r round(mean(-100 + 100 * nsra4[join_spp] / nsra3[join_spp]), 1)`% for time-removal, and
@@ -225,6 +210,8 @@ abline(lm(nedr4[join_spp] ~ nedr3[join_spp] - 1), lty=1, col="lightblue")
 legend("bottomright", bty="n", pch=21, col=c(1,2), legend=c("v3 and v4","v4 only"))
 par(op)
 ```
+
+## Survey Method
 
 The specification of survey method as human point count or ARU survey and transcription method for ARU survey shows the increase in availability for detection that ARU surveys provide. We strongly recommend including this information using the `useMeth` arguent of the `make_off()` function when calculating offsets with the qpad-offsets repository [https://github.com/borealbirds/qpad-offsets](https://github.com/borealbirds/qpad-offsets).
 
@@ -287,62 +274,44 @@ op <- par(mfrow=c(1,2))
 plot(est34$sra4.pc, est34$sra4.spt,
      xlab="Point count availability estimate",
      ylab="ARU-1SPT availability estimate",
-     main="Effect of ARU-1SPT method on availability",
+     main="Effect of ARU-1SPT method\non availability",
      ylim=c(0,3))
 abline(0,1, lty=2, col="lightblue")
 abline(lm(est34$sra4.spt ~ est34$sra4.pc - 1), lty=1, col="lightblue")
 plot(est34$sra4.pc, est34$sra4.spm,
      xlab="Point count availability estimate",
      ylab="ARU-1SPM availability estimate",
-          main="Effect of ARU-1SPM method on availability",
+          main="Effect of ARU-1SPM method\non availability",
      ylim=c(0,3))
 abline(0,1, lty=2, col="lightblue")
 abline(lm(est34$sra4.spm ~ est34$sra4.pc - 1), lty=1, col="lightblue")
 par(op)
 ```
 
+# Visualizing Results
 
-Here is how one can visualize the results for a given species
-(here Canada Warbler, `CAWA`) and a given version depending on
-what was specified as part of the `load_BAM_QPAD` call.
-(Note: loading a different version overwrites the estimates.)
+Here is how one can visualize the results for a given species (here Canada Warbler, `CAWA`) and a given version depending on what was specified as part of the `load_BAM_QPAD` call. (Note: loading a different version overwrites the estimates.)
 
 ```{r dev='png',fig.height=7}
 load_BAM_QPAD(version = 3)
-plot_BAM_QPAD("CAWA", type="AIC")
+plot_BAM_QPAD("CAWA", type="BIC")
 ```
 
-The plots show result summaries for time-removal models (left)
-and distance sampling (right).
-The top row shows model selection results for model candidates.
-The middle row depicts constant singing rate as a function of sampling duration (left) and constant detection distance based distance-decay function (right). Separate lines for each method are predicted for singing rate if the best supported time-removal model includes human point count vs ARU tag method.
-The bottom row shows the date/time relationship for probability
-of availability based on best supported time-removal model (left), and tree cover vs. land cover relationship based on best supported distance sampling model (right).
+The plots show result summaries for time-removal models (left) and distance sampling (right). The top row shows model selection results for model candidates. The middle row depicts constant singing rate as a function of sampling duration (left) and constant detection distance based distance-decay function (right). Separate lines for each method are predicted for singing rate if the best supported time-removal model includes human point count vs ARU tag method. The bottom row shows the date/time relationship for probability of availability based on best supported time-removal model (left), and tree cover vs. land cover relationship based on best supported distance sampling model (right).
 
-We can plot the updated v4 results for the species, to compare sample sizes, model support, general relationships between different versions, and the effect of inclusion of method on availability (note: some species' results might not be available in v3).
-Sample sizes for time-removal and distance sampling can be different because the conditional maximum likelihood estimation uses different observations depending on methodologies (i.e. availability of multiple duration or distance intervals in a given survey).
+We can plot the updated v4 results for the species, to compare sample sizes, model support, general relationships between different versions, and the effect of inclusion of method on availability (note: some species' results might not be available in v3). Sample sizes for time-removal and distance sampling can be different because the conditional maximum likelihood estimation uses different observations depending on methodologies (i.e. availability of multiple duration or distance intervals in a given survey).
 
 ```{r dev='png',fig.height=7}
 load_BAM_QPAD(version = 4)
 plot_BAM_QPAD("CAWA", type="AIC")
 ```
 
-A general and thorough comparison of the results from the different versions is
-outside of the scope of this report, but it can be performed using
-the **QPAD** R package. The R functions and their usage described
-in the supporting information for Solymos et al. [1] are available as part of the
-**QPAD** package. Please refer to the Appendices of this report
-for technical details of parameter estimation and offset calculation.
+A general and thorough comparison of the results from the different versions is outside of the scope of this report, but it can be performed using the **QPAD** R package. The R functions and their usage described in the supporting information for Solymos et al. [1] are available as part of the **QPAD** package. Please refer to the Appendices of this report for technical details of parameter estimation and offset calculation.
 
 # Acknowledgements
 
-This work is a contribution of the Boreal Avian Modelling (BAM) Project, an
-international research collaboration on the ecology, management, and conservation of boreal birds.
-We acknowledge the BAM Project's members, avian and biophysical data partners,
-and funding agencies
-(including Environment Canada and the U.S. Fish &amp; Wildlife Service),
-listed in full at
-[www.borealbirds.ca/index.php/acknowledgements](www.borealbirds.ca/index.php/acknowledgements).
+This work is a contribution of the Boreal Avian Modelling (BAM) Project, an international research collaboration on the ecology, management, and conservation of boreal birds. We acknowledge the BAM Project's members, avian and biophysical data partners, and funding agencies (including Environment Canada and the U.S. Fish &amp; Wildlife Service),
+listed in full at [https://borealbirds.ca/about-us/partners-sponsors/](https://borealbirds.ca/about-us/partners-sponsors/).
 
 # References
 
@@ -354,4 +323,4 @@ listed in full at
 
 [4] QPAD R package: Calibrating indices of avian density from non-standardized survey data, GitHub repository: [https://github.com/borealbirds/QPAD](https://github.com/borealbirds/QPAD).
 
-The code for estimating QPAD V4 is in a Github repository called `QPADestimation` under the borealbirds organization: [https://github.com/borealbirds/QPADestimation] (https://github.com/borealbirds/QPADestimation). The code illustrates the process, but is not reproducible without the data itself.
+The code for estimating QPAD V4 is in a Github repository called **QPADestimation** under the borealbirds organization: [https://github.com/borealbirds/QPADestimation] (https://github.com/borealbirds/QPADestimation). The code illustrates the process, but is not reproducible without the data itself.
