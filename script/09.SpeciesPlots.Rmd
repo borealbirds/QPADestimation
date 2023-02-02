@@ -1,0 +1,16 @@
+---
+title: "QPAD version 4 documentation - Species Plots"
+author: "Elly Knight"
+date: "2023-02-01"
+output: html_document
+---
+
+```{r dev='png',fig.height=7}
+library(QPAD)
+load_BAM_QPAD(version = 4)
+spp <- getBAMspecieslist()
+for(i in 1:length(spp)){
+  plot_BAM_QPAD(spp[i], type="AIC")
+}
+```
+
