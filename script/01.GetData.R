@@ -107,7 +107,6 @@ for(i in 1:length(error.files)){
 
 #6. Collapse list----
 #standardize column names between sensor types
-
 all.wt <- rbindlist(dat.list, fill=TRUE)  %>% 
   rbind(raw.error, fill=TRUE) %>% 
   mutate(project = ifelse(is.na(project), project_name, project),
