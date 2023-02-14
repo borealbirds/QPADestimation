@@ -13,8 +13,6 @@ options(dplyr.summarise.inform = FALSE, scipen=9999)
 
 root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
 
-#TO DO: TAKE OUT RECORDS WITH DUMMY ENTRY FOR TIME AND DATE
-
 #1. Create list of models----
 #JDAY = day of year as a decimal between 0 and 1
 #TSSR = time since sunrise as a decimal between 0 and 1
@@ -89,7 +87,7 @@ modnames <- list(
 #2. Load data----
 load(file.path(root, "Data", "qpadv4_clean.Rdata"))
 
- #Set factor levels
+#Set factor levels
 visit$TM <- factor(visit$TM, levels=c("PC", "ARU-1SPT", "ARU-1SPM"))
 #visit$sensor <- factor(visit$sensor, levels=c("PC", "ARU"))
 
@@ -110,7 +108,7 @@ durdesign.long <- durdesign %>%
 
 #4. Get list of species to process----
 spp <- species %>%
-    dplyr::filter(Singing_birds==TRUE) %>%
+#    dplyr::filter(Singing_birds==TRUE) %>%
     left_join(bird %>%
                   dplyr::select(species) %>%
                   unique()) %>%
@@ -118,7 +116,7 @@ spp <- species %>%
 
 #5. Set up loop for species----
 avail <- list()
-for(i in 1:nrow(spp)){
+for(i in 106:nrow(spp)){
 
     #6. Filter abundance data for species---
     # filter out observations with unknown duration method or interval
@@ -180,31 +178,34 @@ for(i in 1:nrow(spp)){
             arrange(id) %>%
             dplyr::select(-id) %>%
             as.matrix()
-
-        #11. Change zeros to NAs in the abundance matrix to match the design matrix----
-        for (j in 1:nrow(y)){
+        if(nrow(y) > 0){
+          
+          #11. Change zeros to NAs in the abundance matrix to match the design matrix----
+          for (j in 1:nrow(y)){
             indices <- which(is.na(d[j,]))
             y[j, indices] <- NA
-        }
-        
-        #12. Fit models----
-        #Save a bunch of metadata like sample size and aic value
-        mod.list <- list()
-        for (j in 1:length(mods)) {
-          f <- as.formula(paste0("y | d ", paste(as.character(mods[[j]]), collapse=" ")))
-          mod <- try(cmulti(f, x, type="rem"))
-          if (!inherits(mod, "try-error")) {
-            rmvl <- mod[c("coefficients","vcov","nobs","loglik")]
-            rmvl$p <- length(coef(mod))
-            rmvl$names <- modnames[[j]]
-          } else {
-            rmvl <- mod
           }
-          mod.list[[names(modnames)[j]]] <- rmvl
+          
+          #12. Fit models----
+          #Save a bunch of metadata like sample size and aic value
+          mod.list <- list()
+          for (j in 1:length(mods)) {
+            f <- as.formula(paste0("y | d ", paste(as.character(mods[[j]]), collapse=" ")))
+            mod <- try(cmulti(f, x, type="rem"))
+            if (!inherits(mod, "try-error")) {
+              rmvl <- mod[c("coefficients","vcov","nobs","loglik")]
+              rmvl$p <- length(coef(mod))
+              rmvl$names <- modnames[[j]]
+            } else {
+              rmvl <- mod
+            }
+            mod.list[[names(modnames)[j]]] <- rmvl
+          }
+          
+          #13. Save model results to species list---
+          avail[[i]] <- mod.list
+          
         }
-        
-        #13. Save model results to species list---
-        avail[[i]] <- mod.list
         
     }
     

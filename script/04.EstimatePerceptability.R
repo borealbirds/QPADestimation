@@ -46,7 +46,7 @@ distdesign <- visit %>%
 
 #4. Get list of species to process----
 spp <- species %>%
-    dplyr::filter(Singing_birds==TRUE) %>%
+#    dplyr::filter(Singing_birds==TRUE) %>%
     left_join(bird %>%
                   dplyr::select(species) %>%
                   unique()) %>%
@@ -54,7 +54,7 @@ spp <- species %>%
 
 #5. Set up loop for species----
 percep <- list()
-for(i in 1:nrow(spp)){
+for(i in 106:nrow(spp)){
 
     #6. Filter abundance data for species---
     # filter out observations with unknown duration method or interval
@@ -114,31 +114,35 @@ for(i in 1:nrow(spp)){
             arrange(id) %>%
             dplyr::select(-id) %>%
             as.matrix()
-
-        #11. Change zeros to NAs in the abundance matrix to match the design matrix----
-        for (j in 1:nrow(y)){
+        
+        if(nrow(y) > 0){
+          
+          #11. Change zeros to NAs in the abundance matrix to match the design matrix----
+          for (j in 1:nrow(y)){
             indices <- which(is.na(d[j,]))
             y[j, indices] <- NA
-        }
-
-        #12. Fit models----
-        #Save a bunch of metadata like sample size and aic value
-        mod.list <- list()
-        for (j in 1:length(mods)) {
+          }
+          
+          #12. Fit models----
+          #Save a bunch of metadata like sample size and aic value
+          mod.list <- list()
+          for (j in 1:length(mods)) {
             f <- as.formula(paste0("y | d ", paste(as.character(mods[[j]]), collapse=" ")))
             mod <- try(cmulti(f, x, type="dis"))
             if (!inherits(mod, "try-error")) {
-                dista <- mod[c("coefficients","vcov","nobs","loglik")]
-                dista$p <- length(coef(mod))
-                dista$names <- modnames[[j]]
+              dista <- mod[c("coefficients","vcov","nobs","loglik")]
+              dista$p <- length(coef(mod))
+              dista$names <- modnames[[j]]
             } else {
-                dista <- mod
+              dista <- mod
             }
             mod.list[[names(modnames)[j]]] <- dista
+          }
+          
+          #13. Save model results to species list---
+          percep[[i]] <- mod.list
+          
         }
-
-        #13. Save model results to species list---
-        percep[[i]] <- mod.list
         
     }
 
