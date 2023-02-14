@@ -37,7 +37,7 @@ length(.BAMCOEFS$spp) #151
 rm(.BAMCOEFS)
 
 load_BAM_QPAD(4)
-length(.BAMCOEFS$spp) #187
+length(.BAMCOEFS$spp) #246
 
 #B. TEST qpad-offsets REPO####
 
