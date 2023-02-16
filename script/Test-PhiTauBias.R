@@ -375,9 +375,12 @@ save(percep, file=file.path(root, "Results/perceptibility_PhiTauBias.Rdata"))
 
 #C. COMPARISON####
 
+load(file.path(root, "Results/availability_PhiTauBias.Rdata"))
+load(file.path(root, "Results/perceptibility_PhiTauBias.Rdata"))
+
 #1. Wrangle availability results----
 est.avail <- est34 %>% 
-  dplyr::select(sra4, sra4.pc, sra4.spt, sra4.spm, species) %>% 
+  dplyr::select(sra4, sra4.pc, sra4.spt, sra4.spm, edr4, species) %>% 
   mutate(method="all") %>% 
   dplyr::filter(species %in% spp.avail$species)
 
@@ -388,29 +391,38 @@ for(i in 1:nrow(spp.avail)){
   sra4.spt <- exp(sum(avail[[i]]$"15"$coefficients[c(1,2)]))
   sra4.spm <- exp(sum(avail[[i]]$"15"$coefficients[c(1,3)]))
   est.avail <- rbind(est.avail,
-                data.frame(sra4=sra4, sra4.pc=sra4.pc, sra4.spt=sra4.spt, sra4.spm=sra4.spm, species=spp.avail$species[i], method = "first"))
+                data.frame(sra4=sra4, sra4.pc=sra4.pc, sra4.spt=sra4.spt, sra4.spm=sra4.spm, edr4=est.avail$edr4[est.avail$species==spp.avail$species[i]],species=spp.avail$species[i], method = "first"))
 }
 
 est.avail.wide <- est.avail %>% 
-  pivot_wider(id_cols=species, names_from=method, values_from=sra4:sra4.spm) %>% 
+  pivot_wider(id_cols=species, names_from=method, values_from=sra4:edr4) %>% 
   data.frame()
+
+est.avail.wide$density_all <- 10/((pi*est.avail.wide$edr4_all^2)*(1-exp(-5*est.avail.wide$sra4.pc_all)))
+est.avail.wide$density_first <- 10/((pi*est.avail.wide$edr4_first^2)*(1-exp(-5*est.avail.wide$sra4.pc_first)))
+                                  
 
 #2. Wrangle perceptibility results----
 est.percep <- est34 %>% 
-  dplyr::select(edr4, species) %>% 
+  dplyr::select(edr4, sra4.pc, species) %>% 
   mutate(method="all") %>% 
-  dplyr::filter(species %in% spp.percep$species)
+  dplyr::filter(species %in% names(percep))
 
-for(i in 1:nrow(spp.percep)){
+for(i in 1:length(percep)){
   
   edr4 <- exp(percep[[i]]$"0"$coefficients[1])
   est.percep <- rbind(est.percep,
-                     data.frame(edr4=edr4, species=spp.percep$species[i], method = "first"))
+                     data.frame(edr4=edr4, sra4.pc=est.percep$sra4.pc[est.percep$species==names(percep)[i]], species=names(percep)[i], method = "first"))
 }
 
 est.percep.wide <- est.percep %>% 
-  pivot_wider(id_cols=species, names_from=method, values_from=edr4) %>% 
+  pivot_wider(id_cols=species, names_from=method, values_from=edr4:sra4.pc) %>% 
   data.frame()
+
+est.percep.wide$density_all <- 10/((pi*est.percep.wide$edr4_all^2)*(1-exp(-5*est.percep.wide$sra4.pc_all)))
+est.percep.wide$density_first <- 10/((pi*est.percep.wide$edr4_first^2)*(1-exp(-5*est.percep.wide$sra4.pc_first)))
+
+#3. Calculate density----
 
 #3. Plot----
 plot.avial1 <- ggplot(est.avail.wide) +
@@ -429,6 +441,14 @@ plot.avail2 <- ggplot(est.avail.wide) +
   ggtitle("Human point count phi estimate")
 plot.avail2
 
+plot.avail.density <- ggplot(est.avail.wide) +
+  geom_text(aes(x=density_all, y=density_first, label=species)) +
+  geom_abline(intercept = 0, slope = 1) +
+  xlab("all data") +
+  ylab("distance < 100 m") +
+  ggtitle("Human point count phi estimate")
+plot.avail.density
+
 plot.percep <- ggplot(est.percep.wide) +
   geom_text(aes(x=all, y=first, label=species)) +
   geom_abline(intercept = 0, slope = 1) +
@@ -436,6 +456,14 @@ plot.percep <- ggplot(est.percep.wide) +
   ylab("first time bin") +
   ggtitle("Null tau estimate")
 plot.percep
+
+plot.percep.density <- ggplot(est.percep.wide) +
+  geom_text(aes(x=density_all, y=density_first, label=species)) +
+  geom_abline(intercept = 0, slope = 1) +
+  xlab("all data") +
+  ylab("distance < 100 m") +
+  ggtitle("Human point count phi estimate")
+plot.percep.density
 
 ggsave(grid.arrange(plot.avial1, plot.avail2, plot.percep, nrow=3),
        filename=file.path(root, "Figures", "Tau&PhiTruncation.jpeg"), 
