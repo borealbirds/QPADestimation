@@ -7,7 +7,7 @@
 library(tidyverse)
 library(QPAD)
 
-root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
+root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
 
 options(scipen=9999)
 

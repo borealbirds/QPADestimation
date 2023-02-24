@@ -17,7 +17,7 @@ library(terra) #raster handling
 library(downloader) #download region file
 
 #2. Set root path for data on google drive----
-root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/"
+root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
 
 #A. CLEAN VISIT DATA####################
 

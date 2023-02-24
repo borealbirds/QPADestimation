@@ -31,7 +31,7 @@ library(data.table) #for binding lists into dataframes
 library(lubridate) #date wrangling
 
 #2. Set root path for data on google drive----
-root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data"
+root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
 
 #A. DOWNLOAD DATA FROM WILDTRAX#######################
 

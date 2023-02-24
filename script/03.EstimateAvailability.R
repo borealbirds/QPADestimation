@@ -11,7 +11,7 @@ library(data.table) #collapse list to dataframe
 
 options(dplyr.summarise.inform = FALSE, scipen=9999)
 
-root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
+root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
 
 #1. Create list of models----
 #JDAY = day of year as a decimal between 0 and 1

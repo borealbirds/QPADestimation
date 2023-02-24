@@ -9,7 +9,7 @@ library(tidyverse) #basic data wrangling
 library(detect) #removal models
 library(data.table) #collapse list to dataframe
 
-root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
+root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
 
 #1. Create list of models----
 mods <- list(

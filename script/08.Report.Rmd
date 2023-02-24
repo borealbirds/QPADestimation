@@ -97,7 +97,7 @@ We considered the same predictor variables as in QPAD v3 for distance sampling:
 The following reclassification was used to create for `LCC2` and `LCC4` variables from NALCMS:
 
 ```{r echo=FALSE}
-root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
+root <- root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
 lt <- read.csv(file.path(root, "Data", "lookups", "nalcms.csv"))
 knitr::kable(lt[,-3], row.names = FALSE)
 ```

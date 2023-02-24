@@ -7,7 +7,7 @@
 
 library(tidyverse) #basic data wrangling
 
-root <- "G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/"
+root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
 
 load(file.path(root, "Results/availability.Rdata"))
 load(file.path(root, "Results/perceptability.Rdata"))
