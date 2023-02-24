@@ -65,6 +65,7 @@ spp <- species %>%
   arrange(species)
 
 #5. Set up loop for species----
+joint <- list()
 for(i in 1:nrow(spp)){
   
   start <- Sys.time()
@@ -138,11 +139,11 @@ for(i in 1:nrow(spp)){
     }
     
     #11. Create covariate matrix----
-    X1.null <- model.matrix(~rep(1, nrow(x)))
+    X1.null <- model.matrix(~1, x)
     colnames(X1.null) <- c("tau_int")
     
     # Design matrix for phi (scaled covariate for better model convergence)
-    X2.null <- model.matrix(~rep(1, nrow(x)))
+    X2.null <- model.matrix(~1, x)
     colnames(X2.null) <- c("phi_int")
     X2.TM <- model.matrix(~x$TM)
     colnames(X2.TM) <- c("phi_int","phi_SPT", "phi_SPM")
@@ -154,7 +155,7 @@ for(i in 1:nrow(spp)){
                             rarray,
                             tarray,
                             X1 = X1.null,
-                            X2 = X2.null))
+                            X2 = X2.null), silent=TRUE)
     
     if (!inherits(fit.null, "try-error")) {
       out <- fit.null[c("coefficients","vcov","loglik")]
@@ -170,7 +171,7 @@ for(i in 1:nrow(spp)){
                                  rarray,
                                  tarray,
                                  X1 = X1.null,
-                                 X2 = X2.TM))
+                                 X2 = X2.TM), silent=TRUE)
     
     if (!inherits(fit.TM, "try-error")) {
       out <- fit.TM[c("coefficients","vcov","loglik")]
@@ -190,9 +191,9 @@ for(i in 1:nrow(spp)){
   #14. Save results to local----
   names(joint) <- spp$species[1:i]
   
-  save(joint, file=file.path(root, "Results/jointestimates.Rdata")) 
+  #save(joint, file=file.path(root, "Results/jointestimates.Rdata")) 
   
   end <- Sys.time()
   
-  print(paste0("Finished modelling species ", spp$English_Name[i], ": ", i, " of ", nrow(spp), " species in ", end-start, " minutes"))
+  print(paste0("Finished modelling species ", spp$English_Name[i], ": ", i, " of ", nrow(spp), " species in ", round(end-start, 2), " minutes"))
 }
