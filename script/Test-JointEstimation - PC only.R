@@ -562,7 +562,7 @@ ggplot(estTM) +
 
 #PHI----
 estj.phi <- estTM %>% 
-  dplyr::select(species, sraj.tauTM.all, sraj.phiTM.PC, sraj.phiTM.SPT, sraj.phiTM.SPM, sraj.bothTM.PC, sraj.bothTM.SPT, sraj.bothTM.SPM) %>% 
+  dplyr::select(species, weird, sraj.tauTM.all, sraj.phiTM.PC, sraj.phiTM.SPT, sraj.phiTM.SPM, sraj.bothTM.PC, sraj.bothTM.SPT, sraj.bothTM.SPM) %>% 
   full_join(estnull %>% 
               dplyr::select(species, sraj) %>% 
               rename(sraj.null.all = sraj)) %>% 
@@ -574,13 +574,14 @@ estj.phi <- estTM %>%
 ggplot(estj.phi) +
   geom_violin(aes(x=method, y=log(phi), colour=model), position = position_dodge(width = 0.7)) +
   xlab("Survey method type") +
-  ylab("log(phi)")
+  ylab("log(phi)") +
+  facet_wrap(~weird)
 
 ggsave(file.path(root, "Figures", "JointModelComparison - Method.jpeg"), width = 6, height = 4, units="in")
 
 #TAU----
 estj.tau <- estTM %>% 
-  dplyr::select(species, edrj.phiTM.all, edrj.tauTM.PC, edrj.tauTM.SPT, edrj.tauTM.SPM, edrj.bothTM.PC, edrj.bothTM.SPT, edrj.bothTM.SPM) %>% 
+  dplyr::select(species, weird, edrj.phiTM.all, edrj.tauTM.PC, edrj.tauTM.SPT, edrj.tauTM.SPM, edrj.bothTM.PC, edrj.bothTM.SPT, edrj.bothTM.SPM) %>% 
   full_join(estnull %>% 
               dplyr::select(species, edrj) %>% 
               rename(edrj.null.all = edrj)) %>% 
@@ -590,4 +591,7 @@ estj.tau <- estTM %>%
   dplyr::filter(!is.na(tau))
 
 ggplot(estj.tau) +
-  geom_violin(aes(x=method, y=log(tau), colour=model))
+  geom_violin(aes(x=method, y=log(tau), colour=model)) +
+  xlab("Survey method type") +
+  ylab("log(tau)") +
+  facet_wrap(~weird, scales="free")
