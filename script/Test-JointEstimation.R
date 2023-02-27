@@ -198,6 +198,8 @@ for(i in 1:nrow(spp)){
 
 #B. PACKAGE####
 
+load(file.path(root, "Results/jointestimates.Rdata"))
+
 #1. Remove species that didn't have enough data----
 resOK <- joint[!sapply(joint, length)==0]
 c(OK=length(resOK), failed=length(joint)-length(resOK), all=length(joint))
@@ -375,6 +377,9 @@ save(.BAMCOEFSjoint, file=file.path(root, "Results/BAMCOEFS_QPAD_joint.rda"))
 saveRDS(bamcoefs, file=file.path(root, "Results/BAMCOEFS_QPAD_joint.rds"))
 
 #C. COMPARE####
+
+.BAMCOEFSjoint <- readRDS(file=file.path(root, "Results/BAMCOEFS_QPAD_joint.rds"))
+spp <- .BAMCOEFSjoint$spp
 
 #1. Read in QPADV4 nulll estimates----
 est34 <- read.csv(file.path(root, "Results/QPADV3V4NullEstimates.csv"))
