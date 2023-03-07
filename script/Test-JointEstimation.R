@@ -20,13 +20,23 @@ bird$distanceBand <- ifelse(bird$TM!="PC", "0m-INF", bird$distanceBand)
 
 #fix ARU distance design
 visit$distanceMethod <- ifelse(visit$distanceMethod=="0m-INF-ARU", "0m-INF", visit$distanceMethod)
+bird$distanceMethod <- ifelse(bird$distanceMethod=="0m-INF-ARU", "0m-INF", bird$distanceMethod)
+
+#collapse 0-3-5-10-10min+ and 0-3-5-10min durationMethods (no 10+ detections in dataset)
+visit$durationMethod <- ifelse(visit$durationMethod=="0-3-5-10-10min+", "0-3-5-10min", visit$durationMethod)
+bird$durationMethod <- ifelse(bird$durationMethod=="0-3-5-10-10min+", "0-3-5-10min", bird$durationMethod)
 
 #2. Filter bird data----
 #no NONE tag method
-#no na TM
+#no na Tag method
+#no unknown methods, bands, intervals
 bird.use <- dplyr::filter(bird,
                       TM!="ARU-NONE",
-                      !is.na(TM))
+                      !is.na(TM),
+                      durationMethod!="UNKNOWN",
+                      distanceMethod!="UNKNOWN",
+                      durationInterval!="UNKNOWN",
+                      distanceBand!="UNKNOWN")
 
 #3. Create design lookup tables----
 durdesign <- visit %>%
@@ -35,8 +45,8 @@ durdesign <- visit %>%
   dplyr::filter(!durationMethod %in% c("UNKNOWN"),
                 !is.na(durationMethod)) %>%
   mutate(dm = str_sub(durationMethod, -100, -4)) %>%
-  separate(dm, into=c("t00", "t01", "t02", "t03", "t04", "t05", "t06", "t07", "t08", "t09", "t10"), remove=TRUE, sep="-") %>%
-  dplyr::select(-t00) %>%
+  separate(dm, into=c("t00", "t01", "t02", "t03", "t04", "t05", "t06", "t07", "t08", "t09", "t10"), remove=TRUE, sep="-", extra="drop", fill="right") %>%
+  dplyr::select(-t00) %>% 
   mutate_at(c("t01", "t02", "t03", "t04", "t05", "t06", "t07", "t08", "t09", "t10"), ~as.numeric(.))
 
 durdesign.long <- durdesign %>% 
@@ -48,7 +58,7 @@ distdesign <- visit %>%
   unique() %>%
   dplyr::filter(!distanceMethod %in% c("UNKNOWN"),
                 !is.na(distanceMethod)) %>%
-  separate(distanceMethod, into=c("d00", "d01", "d02", "d03", "d04", "d05", "d06", "d07", "d08", "d09", "d10", "d11", "d12", "d13"), remove=FALSE, sep="-") %>%
+  separate(distanceMethod, into=c("d00", "d01", "d02", "d03", "d04", "d05", "d06", "d07", "d08", "d09", "d10", "d11", "d12", "d13"), remove=FALSE, sep="-", extra="drop", fill="right") %>%
   dplyr::select(-d00) %>%
   mutate_at(c("d01", "d02", "d03", "d04", "d05", "d06", "d07", "d08", "d09", "d10", "d11", "d12", "d13"), ~str_sub(., -100, -2)) %>%
   mutate_at(c("d01", "d02", "d03", "d04", "d05", "d06", "d07", "d08", "d09", "d10", "d11", "d12", "d13"), ~ifelse(.=="IN", Inf, .)) %>%
@@ -59,36 +69,36 @@ distdesign.long <- distdesign %>%
   dplyr::filter(!is.na(far))
 
 #4. Get list of species to process----
-spp <- species %>%
-      dplyr::filter(Singing_birds==TRUE) %>%
-  left_join(bird %>%
-              dplyr::select(species) %>%
-              unique()) %>%
-  arrange(species)
+# spp <- species %>%
+#       dplyr::filter(Singing_birds==TRUE) %>%
+#   left_join(bird %>%
+#               dplyr::select(species) %>%
+#               unique()) %>%
+#   arrange(species)
+spp <- data.frame(species=c("WETA", "AMGO", "PAWA", "LEFL", "ALFL"))
 
 #5. Set up loop for species----
-joint <- list()
+#joint <- list()
 for(i in 1:nrow(spp)){
   
   start <- Sys.time()
   
   #6. Filter abundance data for species---
   # filter out observations with unknown duration method or interval
-  # filter out observations with "none" tag method
   # filter out observations where interval does not match method
+  # sum abundance for each bin in each visit
   bird.i <- bird.use %>%
     dplyr::filter(species==spp$species[i],
                   durationMethod %in% durdesign$durationMethod,
                   distanceMethod %in% distdesign$distanceMethod,
-                  !durationInterval %in% c("UNKNOWN", "before or after/incidental"),
-                  !is.na(TM)) %>% 
+                  !durationInterval %in% c("UNKNOWN", "before or after/incidental")) %>% 
     separate(durationInterval, into=c("start", "end"), sep="-", remove=FALSE, extra="drop", fill="right") %>%
     mutate(start = as.numeric(start),
-           end = as.numeric(str_sub(end, -100, -4))) %>%
+           end = as.numeric(str_sub(end, -100, -4))) %>% 
     left_join(durdesign.long, by=c("durationMethod", "end")) %>% 
     separate(distanceBand, into=c("near", "far"), sep="-", remove=FALSE, extra="drop", fill="right") %>% 
     mutate(near = as.numeric(str_sub(near, -100, -2)),
-           far = ifelse(far=="INF", Inf, as.numeric(str_sub(far, -100, -2)))) %>% 
+           far = ifelse(far=="INF", Inf, suppressWarnings(as.numeric(str_sub(far, -100, -2))/100))) %>% 
     left_join(distdesign.long, by=c("distanceMethod", "far")) %>% 
     dplyr::filter(!is.na(durposition),
                   !is.na(distposition)) %>% 
@@ -395,7 +405,8 @@ for(i in 1:length(spp)){
 
 estnull <- est34 %>% 
   dplyr::select(species, sra4, edr4) %>% 
-  left_join(estj)
+  left_join(estj) %>% 
+  mutate(offj = )
 
 #Null estimates----
 ggplot(estnull) +
