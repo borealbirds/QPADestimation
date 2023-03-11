@@ -92,7 +92,7 @@ spp <- bird.use %>%
 
 #5. Set up loop for species----
 mod.list <- list()
-for(i in 1:nrow(spp)){
+for(i in 100:nrow(spp)){
   
   start <- Sys.time()
   
