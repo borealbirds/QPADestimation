@@ -15,9 +15,10 @@ library(suncalc) #sunrise time retrieval
 library(sf) #spatial manipulation
 library(terra) #raster handling
 library(downloader) #download region file
+library(lutz) #get timezone
 
 #2. Set root path for data on google drive----
-root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
+root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD/Data"
 
 #A. CLEAN VISIT DATA####################
 
@@ -50,10 +51,9 @@ method <- use %>%
   separate(ARUMethod, into=c("duration", "tagMethod"), sep=" ", remove=FALSE) %>%
   mutate(minutes = as.numeric(str_sub(duration, -100, -2))/60,
          tagMethod = paste0("ARU-", tagMethod)) %>% 
-  dplyr::filter(minutes %in% c(1:10),
+  dplyr::filter(minutes %in% c(2:10),
                 tagStart <= minutes*60) %>%
-  mutate(durationMethod = case_when(minutes==1 ~ "0-0.5-1min",
-                                    minutes==2 ~ "0-1-2min",
+  mutate(durationMethod = case_when(minutes==2 ~ "0-1-2min",
                                     minutes==3 ~ "0-1-2-3min",
                                     minutes==4 ~ "0-1-2-3-4min",
                                     minutes==5 ~ "0-1-2-3-4-5min",
@@ -77,6 +77,7 @@ method <- use %>%
 #Remove outliers for day of year (use 99% quantile)
 #Take out BBS because isn't useful for removal or distance sampling
 #Remove none tag methods
+#Remove surveys with unknown survey time - specific coding or no time
 dat <- method %>%
   dplyr::filter(!is.na(date),
                 project!="BAM-BBS",
@@ -93,38 +94,59 @@ dat <- method %>%
                 !is.na(date),
                 year(date) > 1900,
                 julian > quantile(julian, 0.005),
-                julian < quantile(julian, 0.995))
+                julian < quantile(julian, 0.995),
+                !str_sub(datetime, -8, -1) %in% c("00:00:01", "00:01:01"),
+                str_sub(datetime, -3, -3)==":")
 
 #4. Wrangle temporal variables----
 temporal <- dat %>%
     mutate(datetime = ymd_hms(date),
            year = year(datetime),
            julian = yday(datetime),
-           start_time = hour(datetime) + minute(datetime)/60) %>%
-    dplyr::filter(year > 1900)
+           start_time = hour(datetime) + minute(datetime)/60)
 
 #check distribution against for time zone issues
 ggplot(temporal) +
   geom_histogram(aes(x=start_time, fill=sensor))
 #looks OK
 
-#5. Get sunrise time----
-sun <- temporal %>%
-    mutate(date = ymd(str_sub(datetime, 1, 10))) %>%
-    rename(lat = lat, lon = lon)
+#5. Get local timezone----
+tz <- temporal %>%
+  mutate(date = ymd(str_sub(datetime, 1, 10))) %>%
+  rename(lat = lat, lon = lon) %>% 
+  mutate(tz=tz_lookup_coords(lat, lon, method="accurate"))
 
-sun$sunrise <- getSunlightTimes(data=sun, keep="sunrise")$sunrise
-sun$hssr <- as.numeric(difftime(sun$datetime, sun$sunrise), units="hours")
+#6. Calculate time since sunrise----
+#Loop through timezones to calculate time since sunrise
+tzs <- unique(tz$tz)
 
-#6. Get region----
+sun.list <- list()
+for(i in 1:length(tzs)){
+  
+  all.i <- tz %>% 
+    dplyr::filter(tz==tzs[i])
+  
+  all.i$sunrise <- getSunlightTimes(data=all.i, keep="sunrise", tz=tzs[i])$sunrise
+  all.i$hssr <- as.numeric(difftime(all.i$Time, all.i$sunrise), units="hours")
+  
+  sun.list[[i]] <- all.i
+}
 
-#6a. Download data
+sun <- do.call(rbind, sun.list)
+
+ggplot(sun) +
+  geom_histogram(aes(x=hssr, fill=sensor))
+#looks OK
+
+#7. Get region----
+
+#7a. Download data
 temp <- tempfile()
 download("https://birdscanada.org/download/gislab/bcr_terrestrial_shape.zip", temp)
 unzip(zipfile=temp, exdir=file.path(root, "gis"))
 unlink(temp)
 
-#6b.Read in & wrangle shapefile
+#7b.Read in & wrangle shapefile
 bcrshp <- read_sf(file.path(root, "gis", "BCR_Terrestrial/BCR_Terrestrial_master.shp")) %>%
     dplyr::select(BCR, PROVINCE_S, COUNTRY) %>%
     rename(bcr = BCR, province = PROVINCE_S, country=COUNTRY) %>%
@@ -135,7 +157,7 @@ bcrshp <- read_sf(file.path(root, "gis", "BCR_Terrestrial/BCR_Terrestrial_master
     st_make_valid() %>%
     vect()
 
-#6c. Create rasters (much faster than from polygon)
+#7c. Create rasters (much faster than from polygon)
 r <- rast(ext(bcrshp), resolution=1000)
 
 bcr <- rasterize(x=bcrshp, y=r, field="bcr")
@@ -144,38 +166,38 @@ country <- rasterize(x=bcrshp, y=r, field="countryid")
 
 regionstack <- rast(list(bcr, province, country))
 
-#6d. Extract values
+#7d. Extract values
 regionids <- sun %>%
     st_as_sf(coords=c("lon", "lat"), crs=4326) %>%
     st_transform(crs=3857) %>%
     vect() %>%
     terra::extract(x=regionstack)
 
-#6e. Create lookup table to join back ids
+#7e. Create lookup table to join back ids
 bcrtbl <- st_as_sf(bcrshp) %>%
     as.data.frame() %>%
     dplyr::select(-geometry) %>%
     unique()
 
-#6f. Put together
+#7f. Put together
 region <- sun %>%
     cbind(regionids) %>%
     dplyr::select(-ID) %>%
     left_join(bcrtbl)
 
-#7. Get covariates----
+#8. Get covariates----
 
-#7a. Download data
+#8a. Download data
 download("https://github.com/borealbirds/qpad-offsets/tree/main/data/lcc.tif", destfile=file.path(root, "lcc.tif"))
 download("https://github.com/borealbirds/qpad-offsets/tree/main/data/seedgrow.tif", destfile=file.path(root, "seedgrow.tif"))
 download("https://github.com/borealbirds/qpad-offsets/tree/main/data/tree.tif", destfile=file.path(root, "tree.tif"))
 
-#7b. Read in rasters----
+#8b. Read in rasters----
 lcc <- rast("gis/lcc.tif")
 sg <- rast("gis/seedgrow.tif")
 tree <- rast("gis/tree.tif")
 
-#7c. Get values----
+#8c. Get values----
 covsf <- region %>%
     st_as_sf(coords=c("lon", "lat"), crs=4326) %>%
     st_transform(crs=crs(lcc)) %>%
@@ -188,7 +210,7 @@ sgval <- terra::extract(covsf, x=sg) %>%
 treeval <- terra::extract(covsf, x=tree) %>%
     dplyr::select(-ID)
 
-#7c.Create lookup table for lcc
+#8d.Create lookup table for lcc
 # 0: No data (NA/NA)
 # 1: Temperate or sub-polar needleleaf forest (Conif/Forest)
 # 2: Sub-polar taiga needleleaf forest (Conif/Forest)
@@ -210,14 +232,14 @@ lcctbl <- data.frame(lcc=c(0:19),
     mutate(lcc2 = case_when(lcc4 %in% c("Conif", "DecidMixed") ~ "Forest",
                             lcc4 %in% c("Open", "Wet") ~ "OpenWet",
                             !is.na(lcc4) ~ lcc4))
-#7d. Put together----
+#8e. Put together----
 covariates <- region %>%
     cbind(lccval, sgval, treeval) %>%
     left_join(lcctbl) %>%
     mutate(tree = tree/100,
            tree = ifelse(tree > 1, 0, tree))
 
-#8. Tidy, create primary key, standardize----
+#9. Tidy, create primary key, standardize----
 #select processing method with higher resolution for recordings that are processed twice
 visit <- covariates %>%
     mutate(tsg = (yday(date)-seedgrow)/365,
