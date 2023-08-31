@@ -77,7 +77,8 @@ method <- use %>%
 #Remove outliers for day of year (use 99% quantile)
 #Take out BBS because isn't useful for removal or distance sampling
 #Remove none tag methods
-#Remove surveys with unknown survey time - specific coding or no time
+#Remove surveys with unknown survey time - specific coding
+#Remove midnight PC surveys
 dat <- method %>%
   dplyr::filter(!is.na(date),
                 project!="BAM-BBS",
@@ -95,8 +96,8 @@ dat <- method %>%
                 year(date) > 1900,
                 julian > quantile(julian, 0.005),
                 julian < quantile(julian, 0.995),
-                !str_sub(datetime, -8, -1) %in% c("00:00:01", "00:01:01"),
-                str_sub(datetime, -3, -3)==":")
+                !str_sub(date, -8, -1) %in% c("00:00:01", "00:01:01"),
+                !(hour(date)==0 & sensor=="PC"))
 
 #4. Wrangle temporal variables----
 temporal <- dat %>%
@@ -108,7 +109,7 @@ temporal <- dat %>%
 #check distribution against for time zone issues
 ggplot(temporal) +
   geom_histogram(aes(x=start_time, fill=sensor))
-#looks OK
+#looks like all local
 
 #5. Get local timezone----
 tz <- temporal %>%
@@ -117,7 +118,8 @@ tz <- temporal %>%
   mutate(tz=tz_lookup_coords(lat, lon, method="accurate"))
 
 #6. Calculate time since sunrise----
-#Loop through timezones to calculate time since sunrise
+
+#Loop through timezones
 tzs <- unique(tz$tz)
 
 sun.list <- list()
@@ -127,7 +129,7 @@ for(i in 1:length(tzs)){
     dplyr::filter(tz==tzs[i])
   
   all.i$sunrise <- getSunlightTimes(data=all.i, keep="sunrise", tz=tzs[i])$sunrise
-  all.i$hssr <- as.numeric(difftime(all.i$Time, all.i$sunrise), units="hours")
+  all.i$hssr <- all.i$start_time-(hour(all.i$sunrise) + minute(all.i$sunrise)/60)
   
   sun.list[[i]] <- all.i
 }
@@ -296,7 +298,7 @@ first <- dat %>%
   dplyr::select(id, project, sensor, location, buffer, lat, lon, year, date, observer, distanceMethod, durationMethod, tagMethod, distanceBand, durationInterval, species, abundance, isSeen, isHeard)
 
 #3. Replace TMTTs with predicted abundance----
-tmtt <- read.csv("C:/Users/Elly Knight/Documents/ABMI/Projects/Wildtrax/TMTT/data/tmtt_predictions_mean.csv") %>% 
+tmtt <- read.csv("G:/My Drive/ABMI/Projects/TMTT/data/tmtt_predictions_mean.csv") %>% 
   rename(species = species_code, observer = observer_id)
 
 bird <- first %>% 
@@ -325,5 +327,5 @@ species <- read.csv(file.path(root, "lookups", "singing-species.csv")) %>%
   rename(species = Species_ID)
 
 #3. Save----
-save(visit, bird, species,  file="G:/.shortcut-targets-by-id/0B1zm_qsix-gPbkpkNGxvaXV0RmM/BAM.SharedDrive/RshProjs/PopnStatus/QPAD/Data/qpadv4_clean.Rdata")
+save(visit, bird, species,  file=file.path(root, "qpadv4_clean.Rdata"))
 
