@@ -89,7 +89,7 @@ load(file.path(root, "Data", "qpadv4_clean.Rdata"))
 
 #Set factor levels
 visit$TM <- factor(visit$TM, levels=c("PC", "ARU-1SPT", "ARU-1SPM"))
-#visit$sensor <- factor(visit$sensor, levels=c("PC", "ARU"))
+bird$TM <- factor(bird$TM, levels =c("PC", "ARU-1SPT", "ARU-1SPM"))
 
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out duration methods that aren't appropriate for removal modelling (only have 1 time bin)
@@ -108,7 +108,7 @@ durdesign.long <- durdesign %>%
 
 #4. Get list of species to process----
 spp <- species %>%
-#    dplyr::filter(Singing_birds==TRUE) %>%
+    dplyr::filter(Singing_birds==TRUE) %>%
     left_join(bird %>%
                   dplyr::select(species) %>%
                   unique()) %>%
@@ -116,7 +116,7 @@ spp <- species %>%
 
 #5. Set up loop for species----
 avail <- list()
-for(i in 106:nrow(spp)){
+for(i in 181:nrow(spp)){
 
     #6. Filter abundance data for species---
     # filter out observations with unknown duration method or interval
