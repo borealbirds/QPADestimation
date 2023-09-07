@@ -13,7 +13,18 @@ options(dplyr.summarise.inform = FALSE, scipen=9999)
 
 root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
 
-#1. Create list of models----
+#1. Load data----
+load(file.path(root, "Data", "qpadv4_clean.Rdata"))
+
+#Set factor levels
+visit$TM <- factor(visit$TM, levels=c("PC", "ARU-1SPT", "ARU-1SPM"))
+bird$TM <- factor(bird$TM, levels =c("PC", "ARU-1SPT", "ARU-1SPM"))
+
+#Create squared terms
+visit$JDAY2 <- visit$JDAY^2
+visit$TSSR2 <- visit$TSSR^2
+
+#2. Create list of models----
 #JDAY = day of year as a decimal between 0 and 1
 #TSSR = time since sunrise as a decimal between 0 and 1
 #DSLS = ("datys since local spring") days since start of seedgrowth from seedgrow layers
@@ -24,33 +35,33 @@ mods <- list(
   ~ 1,
   ~ JDAY,
   ~ TSSR,
-  ~ poly(JDAY, 2),
-  ~ poly(TSSR, 2),
+  ~ JDAY + JDAY2,
+  ~ TSSR + TSSR2,
   ~ JDAY + TSSR,
-  ~ poly(JDAY, 2) + TSSR,
-  ~ JDAY + poly(TSSR, 2),
-  ~ poly(JDAY, 2) + poly(TSSR, 2),
+  ~ JDAY + JDAY2 + TSSR,
+  ~ JDAY + TSSR + TSSR2,
+  ~ JDAY + JDAY2 + TSSR + TSSR2,
   ~ DSLS,
   ~ poly(DSLS, 2),
   ~ DSLS + TSSR,
   ~ poly(DSLS, 2) + TSSR,
-  ~ DSLS + poly(TSSR, 2),
-  ~ poly(DSLS, 2) + poly(TSSR, 2),
+  ~ DSLS + TSSR + TSSR2,
+  ~ poly(DSLS, 2) + TSSR + TSSR2,
   ~ TM,
   ~ TM + JDAY,
   ~ TM + TSSR,
-  ~ TM + poly(JDAY, 2),
-  ~ TM + poly(TSSR, 2),
+  ~ TM + JDAY + JDAY2,
+  ~ TM + TSSR + TSSR2,
   ~ TM + JDAY + TSSR,
-  ~ TM + poly(JDAY, 2) + TSSR,
-  ~ TM + JDAY + poly(TSSR, 2),
-  ~ TM + poly(JDAY, 2) + poly(TSSR, 2),
+  ~ TM + JDAY + JDAY2 + TSSR,
+  ~ TM + JDAY + TSSR + TSSR2,
+  ~ TM + JDAY + JDAY2 + TSSR + TSSR2,
   ~ TM + DSLS,
   ~ TM + poly(DSLS, 2),
   ~ TM + DSLS + TSSR,
   ~ TM + poly(DSLS, 2) + TSSR,
-  ~ TM + DSLS + poly(TSSR, 2),
-  ~ TM + poly(DSLS, 2) + poly(TSSR, 2))
+  ~ TM + DSLS + TSSR + TSSR2,
+  ~ TM + poly(DSLS, 2) + TSSR + TSSR2)
 names(mods) <- 0:29
 modnames <- list(
   "0"=c("(Intercept)"),
@@ -84,13 +95,6 @@ modnames <- list(
   "28"=c("(Intercept)", "TM1SPT", "TM1SPM", "DSLS", "TSSR", "TSSR2"),
   "29"=c("(Intercept)", "TM1SPT", "TM1SPM", "DSLS", "DSLS2", "TSSR", "TSSR2"))
 
-#2. Load data----
-load(file.path(root, "Data", "qpadv4_clean.Rdata"))
-
-#Set factor levels
-visit$TM <- factor(visit$TM, levels=c("PC", "ARU-1SPT", "ARU-1SPM"))
-bird$TM <- factor(bird$TM, levels =c("PC", "ARU-1SPT", "ARU-1SPM"))
-
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out duration methods that aren't appropriate for removal modelling (only have 1 time bin)
 durdesign <- visit %>%
@@ -116,7 +120,7 @@ spp <- species %>%
 
 #5. Set up loop for species----
 avail <- list()
-for(i in 181:nrow(spp)){
+for(i in 1:nrow(spp)){
 
     #6. Filter abundance data for species---
     # filter out observations with unknown duration method or interval
@@ -157,7 +161,7 @@ for(i in 181:nrow(spp)){
                           TM!="ARU-None",
                           durationMethod %in% durdesign$durationMethod) %>%
             arrange(id) %>%
-            dplyr::select(id, durationMethod, TM, year, JDAY, TSSR, DSLS)
+            dplyr::select(id, durationMethod, TM, year, JDAY, JDAY2, TSSR, TSSR2, DSLS)
 
         #9. Create design matrix----
         d <- x %>%
