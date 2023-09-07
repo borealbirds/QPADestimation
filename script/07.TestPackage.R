@@ -37,12 +37,12 @@ length(.BAMCOEFS$spp) #151
 rm(.BAMCOEFS)
 
 load_BAM_QPAD(4)
-length(.BAMCOEFS$spp) #246
+length(.BAMCOEFS$spp) #186
 
 #B. TEST qpad-offsets REPO####
 
 #1. Set WD to qpad-offsets package----
-setwd("C:/Users/Elly Knight/Documents/BAM/Projects/QPAD/qpad-offsets")
+setwd("C:/Users/elly/Documents/BAM/QPAD/qpad-offsets")
 
 #2. Load packages----
 library(maptools)
@@ -80,7 +80,7 @@ str(o)
 
 #C. TEST README SCRIPT####
 
-setwd("C:/Users/Elly Knight/Documents/BAM/Projects/QPAD/qpad-offsets")
+setwd("C:/Users/elly/Documents/BAM/QPAD/qpad-offsets")
 
 ## load packages
 library(QPAD)
