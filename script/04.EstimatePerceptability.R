@@ -11,7 +11,10 @@ library(data.table) #collapse list to dataframe
 
 root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
 
-#1. Create list of models----
+#1. Load data----
+load(file.path(root, "Data/qpadv4_clean.Rdata"))
+
+#2. Create list of models----
 mods <- list(
     ~ 1,
     ~ TREE,
@@ -27,9 +30,6 @@ modnames <- list(
     "3"=c("(Intercept)", "LCC4Conif", "LCC4Open", "LCC4Wet"),
     "4"=c("(Intercept)", "LCC2OpenWet", "TREE"),
     "5"=c("(Intercept)", "LCC4Conif", "LCC4Open", "LCC4Wet", "TREE"))
-
-#2. Load data----
-load(file.path(root, "Data/qpadv4_clean.Rdata"))
 
 #3. Create design lookup table that describes duration method for each protocol----
 #filter out distance methods that aren't appropriate for removal modelling (only have 1 bin)
