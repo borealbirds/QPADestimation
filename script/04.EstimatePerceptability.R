@@ -46,7 +46,7 @@ distdesign <- visit %>%
 
 #4. Get list of species to process----
 spp <- species %>%
-#    dplyr::filter(Singing_birds==TRUE) %>%
+    dplyr::filter(Singing_birds==TRUE) %>%
     left_join(bird %>%
                   dplyr::select(species) %>%
                   unique()) %>%
@@ -54,7 +54,7 @@ spp <- species %>%
 
 #5. Set up loop for species----
 percep <- list()
-for(i in 106:nrow(spp)){
+for(i in 1:nrow(spp)){
 
     #6. Filter abundance data for species---
     # filter out observations with unknown duration method or interval
