@@ -5,6 +5,8 @@
 # adapted from: "QPAD version 3 documentation" by Peter Solymos https://github.com/borealbirds/bamanalytics/blob/master/projects/qpad_v3/QPAD-v3-report.Rmd
 # ---
 
+#NOTE: CONSIDER REMOVING TM OPTION FOR MODELS THAT HAVE A 0 ESTIMATE FOR PC DESPITE METHOD BEING BEST MODEL
+
 library(tidyverse) #basic data wrangling
 
 root <- "G:/Shared drives/BAM_RshProjs/PopnStatus/QPAD"
@@ -328,7 +330,7 @@ bamcoefs <- list(spp=spp,
 
 #21. Save for internal evaluation----
 #for internal evaluation
-save(.BAMCOEFS4, file=file.path(root, "Results/BAMCOEFS_QPAD_v4.rda"))
+save(.BAMCOEFS4, file=file.path(root, "Results/BAMCOEFS_QPAD_V4.rda"))
 
 #to QPAD package
-saveRDS(bamcoefs, file="C:/Users/Elly Knight/Documents/BAM/Projects/QPAD/QPAD/inst/estimates/QPAD_v4.rds")
+saveRDS(bamcoefs, file="C:/Users/elly/Documents/BAM/QPAD/QPAD/inst/estimates/QPAD_v4.rds")
