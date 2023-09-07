@@ -330,7 +330,7 @@ bamcoefs <- list(spp=spp,
 
 #21. Save for internal evaluation----
 #for internal evaluation
-save(.BAMCOEFS4, file=file.path(root, "Results/BAMCOEFS_QPAD_V4.rda"))
+save(.BAMCOEFS4, file=file.path(root, "Results/BAMCOEFS_QPAD.rda"))
 
 #to QPAD package
 saveRDS(bamcoefs, file="C:/Users/elly/Documents/BAM/QPAD/QPAD/inst/estimates/QPAD_v4.rds")

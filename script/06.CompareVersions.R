@@ -25,7 +25,7 @@ my.theme <- theme_classic() +
 
 #1. Load results----
 load_BAM_QPAD(3)
-load(file.path(root, "Results/BAMCOEFS_QPAD_v4.rda"))
+load(file.path(root, "Results/BAMCOEFS_QPAD.rda"))
 
 #2. Number of species----
 spp3 <- getBAMspecieslist()
@@ -144,6 +144,8 @@ est34 <- full_join(est3, est4) %>%
 
 write.csv(est34, file.path(root, "Results/QPADV3V4NullEstimates.csv"), row.names=FALSE)
 
+est34 <- read.csv(file.path(root, "Results/QPADV3V4NullEstimates.csv"))
+
 ggplot(est34) +
     geom_abline(intercept = 0, slope = 1) +
     geom_point(aes(x=sra3, y=sra4, fill=version), pch=21, alpha = 0.5, size=4) +
@@ -168,8 +170,8 @@ ggplot(est34) +
 
 ggplot(est34) +
   geom_abline(intercept = 0, slope = 1) +
-  geom_point(aes(x=sra4, y=sra4.pc, fill=version), pch=21, alpha = 0.5, size=4) +
-  geom_smooth(aes(x=sra4, y=sra4.pc), method="lm") +
+  geom_point(aes(x=sra3, y=sra4.pc, fill=version), pch=21, alpha = 0.5, size=4) +
+  geom_smooth(aes(x=sra3, y=sra4.pc), method="lm") +
 #  geom_text(aes(x=sra4, y=sra4.aru, label=species)) +
   xlab("V4 point count availability estimate (phi)") +
   ylab("V4 SPT availability estimate (phi)") +
@@ -177,6 +179,16 @@ ggplot(est34) +
   my.theme
 
 #ggsave(filename="figs/ARUvsPC.jpeg", width=8, height=6, units="in")
+
+ggplot(est34) +
+  geom_abline(intercept = 0, slope = 1) +
+  geom_point(aes(x=sra3, y=sra4.spt, fill=version), pch=21, alpha = 0.5, size=4) +
+  geom_smooth(aes(x=sra3, y=sra4.spt), method="lm") +
+  #  geom_text(aes(x=sra4, y=sra4.aru, label=species)) +
+  xlab("V4 point count availability estimate (phi)") +
+  ylab("V4 SPT availability estimate (phi)") +
+  scale_fill_manual(values=c("grey80", "blue", "orange"), name="") +
+  my.theme
 
 lm1 <- lm(sra4.spt ~ sra4.pc, data=est34)
 summary(lm1)
@@ -208,3 +220,18 @@ ggplot(est34 %>%
   geom_smooth(aes(x=edr.n4, y=edr34.abs)) +
   scale_colour_viridis_c()
 
+#6. Tagmethod model----
+est34$edr.best <- .BAMCOEFS4$edr_aiccbest
+est34$sra.best <- .BAMCOEFS4$sra_aiccbest
+est34$TM <- ifelse(est34$sra.best > 14, 1, 0)
+table(est34$TM)
+
+ggplot(est34 %>% dplyr::filter(version=="Both")) +
+  geom_abline(intercept = 0, slope = 1) +
+  geom_point(aes(x=sra4, y=sra4.pc, fill=factor(TM)), pch=21, alpha = 0.5, size=4) +
+  geom_smooth(aes(x=sra4, y=sra4.pc), method="lm") +
+  #  geom_text(aes(x=sra4, y=sra4.aru, label=species)) +
+  xlab("V4 no method estimate (phi)") +
+  ylab("V4 point count estimate (phi)") +
+  scale_fill_manual(values=c("grey80", "blue"), name="") +
+  my.theme
