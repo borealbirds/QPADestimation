@@ -138,11 +138,11 @@ useMeth <- "y"
 o <- make_off(spp, x, useMeth)
 str(o)
 # 'data.frame':	3 obs. of  5 variables:
-#   $ p         : num  0.971 0.961 0.949
+#   $ p         : num  0.982 0.975 0.966
 # $ q         : num  0.58 0.58 0.58
 # $ A         : num  3.14 3.14 3.14
-# $ correction: num  1.77 1.75 1.73
-# $ offset    : num  0.57 0.56 0.547
+# $ correction: num  1.79 1.78 1.76
+# $ offset    : num  0.582 0.575 0.566
 
 SPP <- getBAMspecieslist()
 OFF <- matrix(0, nrow(x), length(SPP))
